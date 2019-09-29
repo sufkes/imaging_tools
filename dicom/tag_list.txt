@@ -1,0 +1,94 @@
+# Identifying tags to modify.
+
+# Replace these tags with Study ID (e.g. SK040001)
+(0010,0010) 1   PatientName and 
+(0010,0020) 1   PatientID
+
+# Replace these tags with anonymous values (e.g. 'ANONYMIZED', 00000000)
+(0008,0080) 3   Institution Name
+(0008,0081) 3   Institution Address
+(0008,0090) 2   Referring Physician's Name
+(0008,0092) 2   Referring Physician's Address
+(0008,0094) 2   Referring Physician's Telephone Numbers
+(0008,009C) 2   Consulting Physician's Name
+(0008,0116) 3   Responsible Organization
+(0008,1010) 3   Station Name
+(0008,1040) 3   Institutional Department Name
+(0008,1048) 2   Physician(s) of Record
+(0008,1050) 2   Performing Physician's Name
+(0008,1060) 2   Name of Physician(s) Reading Study
+(0008,1070) 2   Operators' Name
+(0008,4000) 1   Identifying Comments (RET)
+(0010,0021) 3   Issuer of Patient ID
+(0010,0022) 3   Type of Patient ID
+(0010,0030) 1   Patient's Birth Date
+(0010,0032) 1   Patient's Birth Time
+(0010,0033) 1   Patient's Birth Date in Alternative Calendar
+(0010,0034) 1   Patient's Death Date in Alternative Calendar
+(0010,0035) 3   Patient's Alternative Calendar
+(0010,0040) 2   Patient's Sex
+(0010,1000) 1   Other Patient IDs
+(0010,1001) 1   Other Patient Names
+(0010,1005) 1   Patient's Birth Name
+(0010,1010) 2   Patient's Age    
+(0010,1020) 2   Patient's Size    
+(0010,1030) 2   Patient's Weight
+(0010,1040) 1   Patient's Address
+(0010,1050) 1   Insurance Plan Identification (RET)
+(0010,1060) 1   Patient's Mother's Birth Name
+(0010,1080) 2   Military Rank
+(0010,1081) 2   Branch of Service
+(0010,1090) 1   Medical Record Locator
+(0010,2000) 2   Medical Alerts
+(0010,2110) 2   Allergies
+(0010,2150) 2   Country of Residence
+(0010,2152) 2   Region of Residence
+(0010,2154) 1   Patient's Telephone Numbers
+(0010,2160) 2   Ethnic Group
+(0010,2180) 2   Occupation
+(0010,21A0) 2   Smoking Status
+(0010,21b0) 2   Additional Patient History
+(0010,21c0) 2   Pregnancy Status
+(0010,21d0) 2   Last Menstrual Date
+(0010,21f0) 2   Patient's Religious Preference
+(0010,2297) 1   Responsible Person
+(0010,2298) 1   Responsible Person Role
+(0010,2299) 1   Responsible Organization
+(0010,4000) 1   Patient Comments
+(0032,1020) 3   Scheduled Study Location (RET)
+(0032,1021) 3   Scheduled Study Location AE Title (RET)
+(0032,1030) 2   Reason for Study (RET)
+(0032,1032) 2   Requesting Physician
+(0032,4000) 2   Study Comments
+(0038,0300) 2   Current Patient Location
+(0038,0400) 2   Patient's Institution Residence
+(0038,0500) 2   Patient State
+(0040,0006) 2   Scheduled Performing Physician's Name
+(0040,0010) 3   Scheduled Station Name
+(0040,0011) 3   Scheduled Procedure Step Location
+(0040,0241) 3   Performed Station AE Title
+(0040,0242) 3   Performed Station Name
+(0040,0243) 3   Performed Location
+(0040,2008) 2   Order Entered By
+(0040,2009) 2   Order Enterer's Location
+(0040,2010) 2   Order Callback Phone Number
+(4008,010c) 2   Interpretation Author (RET)
+(4008,0114) 2   Physician Approving Interpretation (RET)
+(4008,0119) 3   Distribution Name (RET)
+(4008,011a) 3   Distribution Address (RET)
+
+# Delete these sequence tags
+(0008,0082) 3  Institution Code Sequence
+(0008,0096) 2  Referring Physician Identification Sequence
+(0008,009D) 2  Consulting Physician Identification Sequence
+(0008,1049) 2  Physician(s) of Record Identification Sequence
+(0008,1052) 2  Performing Physician Identification Sequence
+(0008,1062) 2  Physician(s) Reading Study Identification Sequence
+(0008,1072) 2  Operator Identification Sequence
+(0010,0050) 1  Patient's Insurance Plan Code Sequence
+(0010,0101) 2  Patient's Primary Language Code Sequence
+(0010,0102) 2  Patient's Primary Language Code Modifier Sequence
+(0010,1002) 1  Other Patient IDs Sequence
+(0010,1021) 2  Patient's Size Code Sequence    
+(0032,1031) 2  Requesting Physician Identification Sequence
+(0040,000b) 2  Scheduled Performing Physician Identification Sequence

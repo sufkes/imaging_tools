@@ -1,0 +1,84 @@
+(0032,1021) AE 3 Scheduled Study Location AE Title (RET)
+(0040,0241) AE 3 Performed Station AE Title
+#(0010,1010) AS 2 Patient's Age
+(0010,0022) CS 3 Type of Patient ID
+(0010,0035) CS 3 Patient's Alternative Calendar
+(0010,0040) CS 2 Patient's Sex
+#(0010,21A0) CS 2 Smoking Status
+#(0010,2298) CS 1 Responsible Person Role
+#(0010,0030) DA 1 Patient's Birth Date
+(0010,21D0) DA 2 Last Menstrual Date
+(0010,1020) DS 2 Patient's Size
+(0010,1030) DS 2 Patient's Weight
+(0008,0080) LO 3 Institution Name
+(0008,1040) LO 3 Institutional Department Name
+(0010,0021) LO 3 Issuer of Patient ID
+#(0010,0033) LO 1 Patient's Birth Date in Alternative Calendar
+#(0010,0034) LO 1 Patient's Death Date in Alternative Calendar
+#(0010,1000) LO 1 Other Patient IDs
+#(0010,1040) LO 1 Patient's Address
+#(0010,1050) LO 1 Insurance Plan Identification (RET)
+(0010,1080) LO 2 Military Rank
+(0010,1081) LO 2 Branch of Service
+#(0010,1090) LO 1 Medical Record Locator
+(0010,2000) LO 2 Medical Alerts
+(0010,2110) LO 2 Allergies
+(0010,2150) LO 2 Country of Residence
+(0010,2152) LO 2 Region of Residence
+(0010,21F0) LO 2 Patient's Religious Preference
+#(0010,2299) LO 1 Responsible Organization
+(0032,1020) LO 3 Scheduled Study Location (RET)
+(0032,1030) LO 2 Reason for Study (RET)
+(0038,0300) LO 2 Current Patient Location
+(0038,0400) LO 2 Patient's Institution Residence
+(0038,0500) LO 2 Patient State
+#(0008,4000) LT 1 Identifying Comments (RET)
+(0010,21B0) LT 2 Additional Patient History
+#(0010,4000) LT 1 Patient Comments
+(0032,4000) LT 2 Study Comments
+(0008,0090) PN 2 Referring Physician's Name
+(0008,009C) PN 2 Consulting Physician's Name
+(0008,1048) PN 2 Physician(s) of Record
+(0008,1050) PN 2 Performing Physician's Name
+(0008,1060) PN 2 Name of Physician(s) Reading Study
+(0008,1070) PN 2 Operators' Name
+#(0010,1001) PN 1 Other Patient Names
+#(0010,1005) PN 1 Patient's Birth Name
+#(0010,1060) PN 1 Patient's Mother's Birth Name
+#(0010,2297) PN 1 Responsible Person
+(0032,1032) PN 2 Requesting Physician
+(0040,0006) PN 2 Scheduled Performing Physician's Name
+(0040,2008) PN 2 Order Entered By
+(4008,010C) PN 2 Interpretation Author (RET)
+(4008,0114) PN 2 Physician Approving Interpretation (RET)
+(4008,0119) PN 3 Distribution Name (RET)
+(0008,0094) SH 2 Referring Physician's Telephone Numbers
+(0008,1010) SH 3 Station Name
+#(0010,2154) SH 1 Patient's Telephone Numbers
+(0010,2160) SH 2 Ethnic Group
+(0010,2180) SH 2 Occupation
+(0040,0010) SH 3 Scheduled Station Name
+(0040,0011) SH 3 Scheduled Procedure Step Location
+(0040,0242) SH 3 Performed Station Name
+(0040,0243) SH 3 Performed Location
+(0040,2009) SH 2 Order Enterer's Location
+(0040,2010) SH 2 Order Callback Phone Number
+(0008,0082) SQ 3 Institution Code Sequence
+(0008,0096) SQ 2 Referring Physician Identification Sequence
+(0008,009D) SQ 2 Consulting Physician Identification Sequence
+(0008,1049) SQ 2 Physician(s) of Record Identification Sequence
+(0008,1052) SQ 2 Performing Physician Identification Sequence
+(0008,1062) SQ 2 Physician(s) Reading Study Identification Sequence
+(0008,1072) SQ 2 Operator Identification Sequence
+#(0010,0050) SQ 1 Patient's Insurance Plan Code Sequence
+(0010,0101) SQ 2 Patient's Primary Language Code Sequence
+(0010,0102) SQ 2 Patient's Primary Language Code Modifier Sequence
+#(0010,1002) SQ 1 Other Patient IDs Sequence
+(0010,1021) SQ 2 Patient's Size Code Sequence
+(0032,1031) SQ 2 Requesting Physician Identification Sequence
+(0040,000B) SQ 2 Scheduled Performing Physician Identification Sequence
+(0008,0081) ST 3 Institution Address
+(0008,0092) ST 2 Referring Physician's Address
+(0008,0116) ST 3 Responsible Organization
+#(0010,0032) TM 1 Patient's Birth Time
+(0010,21C0) US 2 Pregnancy Status

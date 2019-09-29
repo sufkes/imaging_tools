@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+num1="$(cat -n <(ls) | while read ff; do echo "$ff" | awk '{print $2}' | while read ff2; do if [ "$ff2" = "$1" ] || [ "$ff2"/ = "$1" ]; then echo "$ff" | awk '{print $1}'; fi; done; done)"
+num2="$(cat -n <(ls) | while read ff; do echo "$ff" | awk '{print $2}' | while read ff2; do if [ "$ff2" = "$2" ] || [ "$ff2"/ = "$2" ]; then echo "$ff" | awk '{print $1}'; fi; done; done)"
+if [ $num1 -lt $num2 ]
+then
+    ls | head -n "$num2" | tail -n $(( $num2 - $num1 + 1 ))
+fi
