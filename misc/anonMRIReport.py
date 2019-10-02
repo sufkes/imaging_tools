@@ -5,8 +5,6 @@ import re
 import argparse
 
 # Load color printing function.
-sufkes_git_repo_dir = "/Users/steven ufkes/scripts" # change this to the path to which the sufkes Git repository was cloned.
-sys.path.append(os.path.join(sufkes_git_repo_dir, "misc"))
 from Color import Color
 
 def makeCodeBreaker(code_breaking_file_path):
@@ -71,7 +69,8 @@ def anonLines(mri_report_lines, id):
                          'num_found':0}}
 
 
-    sex_keywords = ['girl', 'boy', 'male', 'female']
+#    sex_keywords = ['girl', 'boy', 'male', 'female'] # if male appears before female, then 'female' will be converted to fe[ANONYMIZED]
+    sex_keywords = ['girl', 'boy', 'female', 'male'] # if male appears before female, then 'female' will be converted to fe[ANONYMIZED]
 #    unhandled_phi_keywords = ['woman', 'man', 'lady', 'she', 'her', 'daughter', 'sister', 'man', 'he', 'his', 'him', 'son', 'brother']
 
     for line in mri_report_lines:
@@ -116,15 +115,22 @@ def anonLines(mri_report_lines, id):
     return anon_lines
 
 def reportChanges(phi_lines, anon_lines):
-    unhandled_phi_keywords = ['woman', 'man', 'lady', 'he', 'she', 'her', 'daughter', 'sister', 'man', 'his', 'him', 'son', 'brother']
-
+    unhandled_phi_keywords_base = ['woman', 'man', 'lady', 'he', 'her', 'she', 'daughter', 'sister', 'man', 'his', 'him', 'son', 'brother']
+#    unhandled_phi_keywords = ['woman', ' man', 'lady', ' he', ' she', ' her', 'daughter', 'sister', ' man', ' his', ' him' , ' son', 'brother']
+    unhandled_phi_keywords = []
+    punctuation = ['\n', '\r', ' ', '.', '!', '?', ',', ';', ':', '>', '<', '\\', '/', ")", "(", "[", "]", "{", "}", '"', "'"]
+    for keyword in unhandled_phi_keywords_base:
+        for pstart in punctuation:
+            for pend in punctuation:
+                unhandled_phi_keywords.append(pstart+keyword+pend)
+    
     # Report unhandled keywords
     
-#    for anon_line in anon_lines:
     anon_all = '\n'.join(anon_lines)
     keywords_missed = set()
     colored_line = anon_all
     for keyword in unhandled_phi_keywords:
+        continue
         if keyword in anon_all:
             keywords_missed.add(keyword)
             colored_line = re.sub(keyword, Color.green+keyword+Color.end, colored_line, flags=re.I)
@@ -192,7 +198,7 @@ if (__name__ == '__main__'):
     parser.add_argument("dest_path", help="path to save anonymized MRI report to", type=str)
         
     # Define optional arguments.
-    parser.add_argument('-c', '--code_path', help='path to code-breaking CSV file', type=str, default='/Users/steven ufkes/Documents/miller/image_processing/CND/cnd_key_delete.csv')
+    parser.add_argument('-c', '--code_path', help='path to code-breaking CSV file. Should be one line per MRN, in format MRN, SubjectID.', type=str, default='/Users/steven ufkes/Documents/miller/image_processing/CND/cnd_key_delete.csv')
     parser.add_argument("-f", "--force", action="store_true", help="overwrite destination path if it exists")
 #    parser.add_argument("-v", "--verbose", action="store_true", help="For each file in path_1, print whether file is exactly duplicated, only PixelData duplicated, or not duplicated. By default, the files in path_1 which have neither an exact duplicate nor a PixelData duplicate are printed.")
     
