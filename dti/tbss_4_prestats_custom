@@ -20,7 +20,7 @@ echo [`date`] [`hostname`] [`uname -a`] [`pwd`] [$0 $@] >> .tbsslog
 stats_dir="$1"
 thresh=$2
 
-cd stats_dir
+cd "$stats_dir"
 
 echo "creating skeleton mask using threshold $thresh"
 echo $thresh > thresh.txt
