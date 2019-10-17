@@ -1,0 +1,19 @@
+#!/bin/sh
+
+echo "merging all upsampled FA images into single 4D image"
+${FSLDIR}/bin/fslmerge -t ../stats/all_FA `$FSLDIR/bin/imglob *_FA_to_target.*`
+cd ../stats
+
+# create mean FA
+echo "creating valid mask and mean FA"
+$FSLDIR/bin/fslmaths all_FA -max 0 -Tmin -bin mean_FA_mask -odt char
+$FSLDIR/bin/fslmaths all_FA -mas mean_FA_mask all_FA
+$FSLDIR/bin/fslmaths all_FA -Tmean mean_FA
+
+# create skeleton
+echo "skeletonising mean FA"
+$FSLDIR/bin/tbss_skeleton -i mean_FA -o mean_FA_skeleton
+
+echo "now view mean_FA_skeleton to check whether the default threshold of 0.2 needs changing, when running:"
+echo "tbss_4_prestats <threshold>"
+
