@@ -1,5 +1,7 @@
 #!/bin/sh
 
+mkdir ../stats
+
 echo "merging all upsampled FA images into single 4D image"
 ${FSLDIR}/bin/fslmerge -t ../stats/all_FA `$FSLDIR/bin/imglob *_FA_to_target.*`
 cd ../stats
