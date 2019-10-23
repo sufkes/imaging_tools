@@ -219,7 +219,7 @@ def anonDicom(in_path, name=None, level=2, modify_pid=False, print_only=False, f
     
         # Execute anonymization command.
         output, errors = run_cmd(cmd_dcmodify, 0)
-        print errors
+#        print errors
 
     else: # if merely reporting PHI. Do this in a separate script.
         # Write dcmdump command to find and print all PHI tags that exist in the header.
@@ -236,8 +236,8 @@ def anonDicom(in_path, name=None, level=2, modify_pid=False, print_only=False, f
 
         # Execute dcmdump command.
         output, errors = run_cmd(cmd_dcmdump, 0)
-        print output
-        print errors
+#        print output
+#        print errors
     return
 
 if (__name__ == "__main__"):
