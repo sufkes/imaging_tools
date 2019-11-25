@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+
+##### 2019-10-24 - This is the most updated script which reports lesion statistics separated according to label value, and reports volumes in mm^3 based on minc header.
+
 """This script takes a minc file which maps out lesions, groups the voxels 
 into sets which corresponds to, e.g., a lesion, determines the maximum length
 of the volume (i.e., the length of the volume measured along whichever 
@@ -20,6 +23,7 @@ and 3rd dimensions in the exported volumne as x, y, and z respectively.
 
 # Standard modules
 import os, sys
+from pprint import pprint
 #import argparse
 
 # Non-standard modules
@@ -27,14 +31,14 @@ import numpy as np
 import pyminc.volumes.factory as pyminc
 
 # My modules in other directories
-sufkes_git_repo_dir = "/Users/steven ufkes/scripts" # change this to the path to which the sufkes Git repository was cloned.
-sys.path.append(os.path.join(sufkes_git_repo_dir, "misc"))
-from Color import Color
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import misc
+from misc.Color import Color
 
 
 minc_file_path = str(sys.argv[1])
 minc_vol = pyminc.volumeFromFile(minc_file_path, labels=True)
-separations = minc_vol.separations
+separations = minc_vol.separations # voxel dimensions in mm?
 volume = minc_vol.data
 
 def getVolumeSet(volume, val_list):
@@ -151,15 +155,15 @@ for volume_index in range(len(volume_list)):
 
     lesions = findLesions(volume)
     
-    # Calculate total lesion volume
+    # Calculate total lesion volume # seems like I did this a crazy way; should probably just be sum of len(lesion) over all lesions.
     num_lesions = len(lesions)
     num_lesion_voxels = 0
     for ii in range(np.shape(volume)[0]):
-            for jj in range(np.shape(volume)[1]):
-                for kk in range(np.shape(volume)[2]):
-                    voxel = volume[ii, jj, kk]
-                    if (voxel > 0):
-                        num_lesion_voxels += 1
+        for jj in range(np.shape(volume)[1]):
+            for kk in range(np.shape(volume)[2]):
+                voxel = volume[ii, jj, kk]
+                if (voxel > 0):
+                    num_lesion_voxels += 1
     
     # Calculate some figures for each lesion (location, maximum length, volume).
     lesion_stats = []
@@ -220,7 +224,8 @@ for volume_index in range(len(volume_list)):
         vol_tot += volume
 
     # Write the longest and largest lesion sizes to variables:
-    max_list.append((label_val, len_max, vol_max, num_lesions, vol_tot))
+#    max_list.append((label_val, len_max, vol_max, num_lesions, vol_tot))
+    max_list.append({'label_value':label_val,'extent_max':len_max, 'volume_max':vol_max, 'num_lesions':num_lesions, 'volume_tot':vol_tot})
 
     #print "Number of lesions: "+str(num_lesions)
     #print "Total number of lesion voxels: "+str(num_lesion_voxels)
@@ -236,19 +241,21 @@ for volume_index in range(len(volume_list)):
 #        print "Lesion center of mass: "+str(lesion_stats[lesion_index]["com"])
 
 # E.g. minc_file_path = BC0002_V01-CbH3.mnc
-id = minc_file_path.split("_")[0].split("BC")[1].lstrip("0")
-visit = minc_file_path.split("_")[1].split("-")[0]
-len_max_left = max_list[1][1]
-len_max_right = max_list[0][1]
-max_len = max(len_max_left, len_max_right)
-vol_max_left = max_list[1][2]
-vol_max_right = max_list[0][2]
-max_vol = max(vol_max_left, vol_max_right)
-num_left = max_list[1][3]
-num_right = max_list[0][3]
-vol_tot_left = max_list[1][4]
-vol_tot_right = max_list[0][4]
-vol_tot = vol_tot_left + vol_tot_right
-print id, visit, len_max_left, len_max_right, max_len, vol_max_left, vol_max_right, max_vol, num_left, num_right, vol_tot_left, vol_tot_right, vol_tot
+#id = minc_file_path.split("_")[0].split("BC")[1].lstrip("0")
+#visit = minc_file_path.split("_")[1].split("-")[0]
+#len_max_left = max_list[1][1]
+#len_max_right = max_list[0][1]
+#max_len = max(len_max_left, len_max_right)
+#vol_max_left = max_list[1][2]
+#vol_max_right = max_list[0][2]
+#max_vol = max(vol_max_left, vol_max_right)
+#num_left = max_list[1][3]
+#num_right = max_list[0][3]
+#vol_tot_left = max_list[1][4]
+#vol_tot_right = max_list[0][4]
+#vol_tot = vol_tot_left + vol_tot_right
+#print id, visit, len_max_left, len_max_right, max_len, vol_max_left, vol_max_right, max_vol, num_left, num_right, vol_tot_left, vol_tot_right, vol_tot
+#pprint(max_list)
 
-
+for thing in max_list:
+    print minc_file_path, thing['label_value'], thing['extent_max'], thing['volume_max'], thing['num_lesions'], thing['volume_tot'],

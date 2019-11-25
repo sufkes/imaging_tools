@@ -39,3 +39,4 @@ __pycache__/
 # Text and spreadsheet files
 *.csv
 *.xls*
+*.png

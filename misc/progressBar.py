@@ -1,7 +1,7 @@
 from Color import Color
 import sys
 
-class progressBar:
+class ProgressBar:
     """
     Prints percentage completion of a task and updates line as task progresses.
     """
