@@ -81,60 +81,10 @@ def buildPathList(in_dir): # get paths of all files in in_dir
     return pathList
 
 def getPathNum(path): # get, e.g., '0002' from 'path/to/file/0002AAAA.dcm'. Doesn't work for other naming conventions.
-    """Read file name and return a guess at the instance number"""
-    pathNum = int(filter(str.isdigit, path)[-4:])
+    pathNum = filter(str.isdigit, path)[-4:]
     return pathNum
 
-def getInstanceNumber(path, use_filename=False):
-    """
-    Parameters:
-        path:         str, file path
-        use_filename: bool, if True, assume the instance number is simply the last four numerals in the filename.
-    Returns:
-        retun_val:    if use_filename=False, returns a tuple: (SeriesNumber, InstanceNumber); else returns a string generated from the file name.
-    """
-
-    if (not use_filename):
-        if isDICOM(path):
-            try:
-                dcm = pydicom.dcmread(path) # Read DICOM file.
-                try:
-                    inst = int(dcm.InstanceNumber) # Get InstanceNumber from header.
-                except AttributeError:
-                    inst = -1
-                    #print "Warning: No InstanceNumber:", path
-                try:
-                    ser = int(dcm.SeriesNumber) # Get SeriesNumber from header.
-                except AttributeError:
-                    ser = -1
-                    #print "Warning: No SeriesNumber:", path
-            except pydicom.errors.InvalidDicomError:
-                inst = -1
-                ser = -1
-                #print "Warning: Invalid DICOM header:", path
-                
-        else:
-            inst = -1 # if non-DICOM file, there is no InstanceNumber, but can still search for copy.
-            ser = -1
-            #print "Warning: File is not DICOM:", path
-        return_val = (ser, inst)
-    else:
-        return_val = getPathNum(path)
-    return return_val
-
-def buildInstanceNumberDict(pathList, use_filename=False):
-    instance_number_dict = {}
-
-    for path in pathList:
-        inst = getInstanceNumber(path, use_filename=use_filename)
-        
-        if (not inst in instance_number_dict):
-            instance_number_dict[inst] = [path] # initialize a list of paths with the InstanceNumber 'inst'.
-        else:
-            instance_number_dict[inst].append(path)
-    return instance_number_dict
-
-def dcmdup(path_1, path_2, deep=False, use_filename=False, verbose=False):
+def dcmdup(path_1, path_2, weak=False, verbose=False):
     # Determine whether input paths exist, and determine whether they are directories or files.
     path_1_is_file = checkPathExistsType(path_1)
     path_2_is_file = checkPathExistsType(path_2)
@@ -152,10 +102,6 @@ def dcmdup(path_1, path_2, deep=False, use_filename=False, verbose=False):
     else:
         pathList2 = buildPathList(path_2)
 
-    # Build dict mapping InstanceNumber to a list of paths of the files with the corresponding InstanceNumber.
-    if (not deep):
-        inst_dict2 = buildInstanceNumberDict(pathList2, use_filename=use_filename)
-        
     if (not verbose):
         if (path_2_is_file):
             print "The following files are not duplicates of the file '"+path_2+"':"
@@ -166,7 +112,6 @@ def dcmdup(path_1, path_2, deep=False, use_filename=False, verbose=False):
         copyFound = False
         exactCopy = False
         pixelCopy = False
-        
         if isDICOM(path1):
             try:
                 dcmPix1 = pydicom.dcmread(path1).PixelData
@@ -181,16 +126,11 @@ def dcmdup(path_1, path_2, deep=False, use_filename=False, verbose=False):
             print "Warning: File is not DICOM:", path1
             dcmPix1 = None # if non-DICOM file, there is no Pixel Data, but can still search for copy.
             
-#        pathNum1 = getPathNum(path1)
-
-
-        try:
-            if (not deep):
-                inst1 = getInstanceNumber(path1, use_filename=use_filename) 
-                search_list = inst_dict2[inst1] # Only look for matches in the list of paths with the same instance number.
-            else:
-                search_list = pathList2
-            for path2 in search_list: 
+        pathNum1 = getPathNum(path1)
+    
+        for path2 in pathList2:
+            pathNum2 = getPathNum(path2)
+            if (pathNum1 == pathNum2) or (not weak):
                 if filecmp.cmp(path1, path2): # If the files are identical.
                     copyFound = True
                     exactCopy = True
@@ -210,9 +150,6 @@ def dcmdup(path_1, path_2, deep=False, use_filename=False, verbose=False):
                         copyFound = True
                         pixelCopy = True
                         break
-        except KeyError:
-            pass
-    
         if (verbose):
             if (not copyFound):
                 print "No duplicates: '"+path1+"'"
@@ -237,10 +174,7 @@ if (__name__ == "__main__"):
     parser.add_argument("path_2", help="Look in this directory for copies of files in path_1..", type=str)
         
     # Define optional arguments.
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument("-w", "--use_filename", action="store_true", help="Only compare pairs of files if the last four numerals in their names are equal. E.g. compare 0001.dcm and 0001A, but do not compare 0001.dcm and 0002.dcm.")
-    group.add_argument('-d', '--deep', action='store_true', help='Compare files in path_1 with every other file in path_2, until a duplicate is found. By defualt, only compare files with matching InstanceNumbers.')
-    
+    parser.add_argument("-w", "--weak", action="store_true", help="Only compare pairs of files if the last four numerals in their names are equal. E.g. compare 0001.dcm and 0001A, but do not compare 0001.dcm and 0002.dcm.")
     parser.add_argument("-v", "--verbose", action="store_true", help="For each file in path_1, print whether file is exactly duplicated, only PixelData duplicated, or not duplicated. By default, the files in path_1 which have neither an exact duplicate nor a PixelData duplicate are printed.")
     
     # Print help message if no args input.
@@ -252,4 +186,4 @@ if (__name__ == "__main__"):
     args = parser.parse_args()
     
     # Perform check
-    dcmdup(args.path_1, args.path_2, deep=args.deep, use_filename=args.use_filename, verbose=args.verbose)
+    dcmdup(args.path_1, args.path_2, weak=args.weak, verbose=args.verbose)
