@@ -4,6 +4,7 @@ import os, sys, argparse
 import subprocess
 import pydicom
 import filecmp
+from warnings import warn
 
 def run_cmd(sys_cmd, verbose=False):
     # one line call to output system command and control debug state
@@ -24,16 +25,19 @@ def isDICOM(filepath):
 def checkPathExistsType(in_path):
     """Verify that a path exists, and determine whether the path is a file or a directory"""
     if (not os.path.exists(in_path)):
-        print 'Error: Path does not exist: '+in_path
-        sys.exit()
-
+        raise ValueError('Path does not exist: '+in_path)
+#        print 'Error: Path does not exist: '+in_path
+#        sys.exit()
     if (os.path.isdir(in_path)):
         is_file = False
-    elif (os.path.isfile(in_path)):
+    elif (os.path.isfile(in_path)): # returns True for symbolic links
         is_file = True
+        if os.path.islink(in_path):
+            warn("Path is a symbolic link: "+in_path)
     else:
-        print 'Error: Path is neither a directory nor a file: '+in_path
-        sys.exit()
+        raise ValueError('Path is neither a directory nor a file: '+in_path)
+        #print 'Error: Path is neither a directory nor a file: '+in_path
+        #sys.exit()
     return is_file
 
 def pathsDisjoint(path_1, path_2, path_1_is_file, path_2_is_file):
@@ -47,34 +51,40 @@ def pathsDisjoint(path_1, path_2, path_1_is_file, path_2_is_file):
                 for filename in filenames:
                     subpath_other_abs = os.path.abspath(os.path.join(dirpath, filename))
                     if (path_abs == subpath_other_abs):
-                        print "Error: Path '"+path+"' is contained in '"+path_other+"'"
-                        return False
+                        raise ValueError("Path '"+path+"' is contained in '"+path_other+"'")
+                        #print "Error: Path '"+path+"' is contained in '"+path_other+"'"
+                        #return False
         else: # if path is a directory:
             for dirpath, dirnames, filenames in os.walk(path_other):
                 for dirname in dirnames:
                     subpath_other_abs = os.path.abspath(os.path.join(dirpath, dirname))
                     if (path_abs == subpath_other_abs):
-                        print "Error: Path '"+path+"' is contained in '"+path_other+"'"
-                        return False
+                        raise ValueError("Path '"+path+"' is contained in '"+path_other+"'")
+                        #print "Error: Path '"+path+"' is contained in '"+path_other+"'"
+                        #return False
     return True
 
 def checkSamePath(path_1, path_2, path_1_is_file, path_2_is_file):
     """Verify that path_1 and path_2 are not the same path, and that path_1 is not contained in path_2 or vice versa."""
 
     # Check if input paths are the same path
-    if (os.path.abspath(path_1) == os.path.abspath(path_2)): 
-        print "Error: Input paths are the same path."
-        sys.exit()
+    if (os.path.abspath(path_1) == os.path.abspath(path_2)):
+        raise ValueError("Input paths are the same path.")
+        #print "Error: Input paths are the same path."
+        #sys.exit()
         
-    if (not pathsDisjoint(path_1, path_2, path_1_is_file, path_2_is_file)):
-        sys.exit()
+    #if (not pathsDisjoint(path_1, path_2, path_1_is_file, path_2_is_file)):
+        #sys.exit()
     return
 
 def buildPathList(in_dir): # get paths of all files in in_dir
     pathList = []
     for dirpath, dirnames, filenames in os.walk(in_dir):
         for filename in filenames:
-            pathList.append(os.path.join(dirpath, filename))
+            path = os.path.join(dirpath, filename)
+            if os.path.islink(path):
+                warn('Path is a symbolic link: '+path) # Still thinking about the best way to deal with symbolic links; for now, just raise a warning and continue.
+            pathList.append(path)
 
     # Sort path list
     pathList = sorted(pathList, key=lambda p: (os.path.sep not in p, p))
@@ -135,6 +145,8 @@ def buildInstanceNumberDict(pathList, use_filename=False):
     return instance_number_dict
 
 def dcmdup(path_1, path_2, deep=False, use_filename=False, verbose=False):
+    # SHOULD ELIMINATE DUPLICATE READING OF DICOM HEADER (HEADER IS READ WHEN inst_dict2 IS CREATED, AND WHEN COMPARING PIXELDATA). HOWEVER, WOULD NEED TO BE CAREFUL ABOUT MEMORY IF ALL OF THE DICOMS WERE STORED IN MEMORY.
+
     # Determine whether input paths exist, and determine whether they are directories or files.
     path_1_is_file = checkPathExistsType(path_1)
     path_2_is_file = checkPathExistsType(path_2)
@@ -172,13 +184,16 @@ def dcmdup(path_1, path_2, deep=False, use_filename=False, verbose=False):
                 dcmPix1 = pydicom.dcmread(path1).PixelData
             except AttributeError: # occurs if dicom files do not have pixel data (e.g. for MRS data).
                 dcmPix1 = None
-                print "Warning: No pixel data:", path1
+                #print "Warning: No pixel data:", path1
+                warn("No pixel data: "+path1)
             except pydicom.errors.InvalidDicomError:
                 dcmPix1 = None
-                print "Warning: Invalid DICOM header:", path1            
+                #print "Warning: Invalid DICOM header:", path1
+                warn("Invalid DICOM header: "+path1)
                 print
         else:
-            print "Warning: File is not DICOM:", path1
+            #print "Warning: File is not DICOM:", path1
+            warn("File is not DICOM: "+path1)
             dcmPix1 = None # if non-DICOM file, there is no Pixel Data, but can still search for copy.
             
 #        pathNum1 = getPathNum(path1)
@@ -238,8 +253,8 @@ if (__name__ == "__main__"):
         
     # Define optional arguments.
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("-w", "--use_filename", action="store_true", help="Only compare pairs of files if the last four numerals in their names are equal. E.g. compare 0001.dcm and 0001A, but do not compare 0001.dcm and 0002.dcm.")
-    group.add_argument('-d', '--deep', action='store_true', help='Compare files in path_1 with every other file in path_2, until a duplicate is found. By defualt, only compare files with matching InstanceNumbers.')
+    group.add_argument("-w", "--use_filename", action="store_true", help="Only compare files if the last four numerals in their names are equal. E.g. compare '0001.dcm' and '0001A', but do not compare '0001.dcm' and '0002.dcm'.")
+    group.add_argument('-d', '--deep', action='store_true', help='Compare each file in path_1 with every other file in path_2, until a duplicate is found. By defualt, only compare files with matching InstanceNumber and SeriesNumber.')
     
     parser.add_argument("-v", "--verbose", action="store_true", help="For each file in path_1, print whether file is exactly duplicated, only PixelData duplicated, or not duplicated. By default, the files in path_1 which have neither an exact duplicate nor a PixelData duplicate are printed.")
     
