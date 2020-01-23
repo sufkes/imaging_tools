@@ -2,7 +2,7 @@
 
 #### Python code to deidentify a MINC file
 ## This script was written for use in a UNIX or UNIX-like operating system, which includes the UNIX 'grep' function.
-## This script requires the functions 'mincheader' and 'minc_modify_header', part of the MINC Toolkit (DCMTK). These functions must be avaiable in the PATH.
+## This script requires the functions 'mincheader' and 'minc_modify_header', part of the MINC Toolkit. These functions must be avaiable in the PATH.
 ## For usage, do:
 
 import os, sys, argparse
@@ -26,17 +26,17 @@ def buildPathList(in_dir): # get paths of all files in in_dir
     return pathList
 
 def anonMinc(in_path, name=None, modify_pid=False, print_only=False, force=False):
-    # Check if file is a directory or is not DICOM
+    # Check if file is a directory.
     if os.path.isdir(in_path):
         raise ValueError('Input path is a directory')
 
-    # Check if file appears to be MINC using the Unix command 'file'. This may fail for real MINC files which are missing information in the header. In such cases, consider running anonDicom with the '-f --force' flag enabled, to skip this check.
-    # This test will probably result in false positives for non-minc files.
+    # Check if file appears to be MINC using the Unix command 'file'. This may fail for real MINC files which are missing information in the header. In such cases, consider running anonMinc with the '-f --force' flag enabled, to skip this check.
+    # This test will probably result in false positives for some non-MINC files.
     if (not force):
         cmd_file = 'file "%s"' % (in_path)
         output, errors = run_cmd(cmd_file, 0)
         if (not "Hierarchical Data Format" in output) and (not "NetCDF Data Format data" in output): # These are the two responses I've seen from the 'file' for MINC files.
-            print "Warning: File appears to be non-DICOM or corrupted. Not anonymizing: "+in_path
+            print "Warning: File appears to be non-MINC or corrupted. Not anonymizing: "+in_path
             return
 
     # Define list of tags to remove (excluding PatientName and PatientID)
@@ -118,7 +118,7 @@ if (__name__ == "__main__"):
     parser = argparse.ArgumentParser(description=description, epilog=epilog, formatter_class=argparse.RawTextHelpFormatter)
     
     # Define positional arguments.
-    parser.add_argument("in_path", help="path to MINC file to be anonymized, or directory containing DICOM files.")
+    parser.add_argument("in_path", help="path to MINC file to be anonymized, or directory containing MINC files.")
     
     # Define optional arguments.
     parser.add_argument("-n", "--name", help="Subject ID to set PatientName tags to", type=str)
@@ -126,7 +126,7 @@ if (__name__ == "__main__"):
     parser.add_argument('-m', "--modify_pid", help="Change PatientID to specified Subject ID. Default: False", action="store_true")
     parser.add_argument('-p', '--print-only', help='Print PHI-containing tags. Do not anonymize.', action='store_true')
     parser.add_argument('-r', '--recursive', action='store_true', help='if in_path is a directory, find and anononymize all files in that directory.')
-    parser.add_argument('-f', '--force', action='store_true', help="If the Unix 'file' command does not identify the input file as DICOM, still attempt to anonymize the file. By default, files not identified as DICOM are skipped.")
+    parser.add_argument('-f', '--force', action='store_true', help="If the Unix 'file' command does not identify the input file as MINC, still attempt to anonymize the file. By default, files not identified as MINC are skipped.")
 
     # Print help if no args input.
     if (len(sys.argv) == 1):
