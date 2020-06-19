@@ -343,13 +343,14 @@ class Study(object): # information about DICOM Study (i.e. about the "scan")
     def addDir(self, file_path):
         # Assume that the Study directory is one level above the directory containing the current file.
         study_dir = os.path.abspath(os.path.join(os.path.dirname(file_path), ".."))
+        print "Reading DICOM Study:", study_dir
         self.study_dir.add(study_dir)
 
     def addStudyDate(self, file_path):
         StudyDate = int(getDicomTag(file_path, "StudyDate"))
         self.StudyDate.add(StudyDate)
         
-    def addFile(self, file_path, quick=False):
+    def addFile(self, file_path, quick=False, first_file_in_dir=False):
         SeriesInstanceUID = getDicomTag(file_path, "SeriesInstanceUID")
         
         # Add information about current file to an instance of the Series object.
@@ -360,7 +361,7 @@ class Study(object): # information about DICOM Study (i.e. about the "scan")
         self.series[SeriesInstanceUID].addFile(file_path, quick=quick)
 
         # Add information about the current file to this Study object (will often be redundant).
-        if (not quick) or (self.num_files==0):
+        if (not (quick or first_file_in_dir)) or (self.num_files==0):
             self.addDir(file_path)
             self.addStudyDate(file_path)
 
@@ -413,7 +414,7 @@ def classifyDicom(in_dirs, quick=False, first_file_in_dir=False, debug=False):
             studies[StudyInstanceUID] = Study(StudyInstanceUID)
             
         # Add information about this file to the Study.
-        studies[StudyInstanceUID].addFile(path, quick=quick)
+        studies[StudyInstanceUID].addFile(path, quick=quick, first_file_in_dir=first_file_in_dir)
 
     for StudyInstanceUID, study in studies.iteritems():
         # Set the variables which record whether all files in the study/series have been examined. This is to ensure that measures which require knowledge of all files in the study/series to be known are not calculated prematurely.
