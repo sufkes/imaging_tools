@@ -26,7 +26,7 @@ def isDicom(in_path):
     else:
         return False
 
-def buildPathList(in_dirs): # get paths of all files in in_dirs
+def buildPathList(in_dirs, first_file_in_dir=False): # get paths of all files in in_dirs
     """Build list of absolute paths of all DICOM files in specified directories."""
     pathList = []
     for in_dir in in_dirs:
@@ -44,6 +44,10 @@ def buildPathList(in_dirs): # get paths of all files in in_dirs
 
                 # Add path to list.
                 pathList.append(abs_path)
+
+                # If first_file_in_dir option is selected, quit after adding the first DICOM file in the current directory.
+                if first_file_in_dir:
+                    break
 
     # Sort path list
     pathList = sorted(pathList, key=lambda p: (os.path.sep not in p, p))
@@ -180,18 +184,20 @@ class Series(object): # information about the DICOM Series.
         if (not InstanceNumber is None):
             self.InstanceNumbers.append(InstanceNumber)
     
-    def addFile(self, file_path):
-        self.addDir(file_path)
-        self.addPath(file_path)
-        self.addSeriesNum(file_path)
-        self.addSeriesDescription(file_path)
-        self.addProtocolName(file_path)
-        self.addSequenceName(file_path)
-        self.addImageType(file_path)
-        self.addMRAcquisitionType(file_path)
-        self.addManufacturer(file_path)
-        self.addManufacturerModelName(file_path)
-        self.addInstanceNumber(file_path)
+    def addFile(self, file_path, quick=False):
+        if (not quick) or (self.num_files == 0):
+            self.addDir(file_path)
+            self.addPath(file_path)
+            self.addSeriesNum(file_path)
+            self.addSeriesDescription(file_path)
+            self.addProtocolName(file_path)
+            self.addSequenceName(file_path)
+            self.addImageType(file_path)
+            self.addMRAcquisitionType(file_path)
+            self.addManufacturer(file_path)
+            self.addManufacturerModelName(file_path)
+            self.addInstanceNumber(file_path)
+        self.num_files += 1
 
     def setAllFilesExamined(self, value=True):
         self.all_files_examined = value
@@ -203,7 +209,7 @@ class Series(object): # information about the DICOM Series.
     def setSummaryValues(self):
         """Calucate measures for this series which require that data has been added for all files in this series."""
         self.checkAllFilesExamined() # ensure that all files have been examined.
-        self.num_files = len(self.paths)
+        #self.num_files = len(self.paths) # COUNT AS WE GO INSTEAD.
         self.maxInstanceNumber = max(self.InstanceNumbers)
 
     def setQualityMetrics(self):
@@ -278,6 +284,11 @@ class Series(object): # information about the DICOM Series.
         return False
 
     def __is_DWI(self):
+        ## Get the SeriesDescription and ImageType
+        desc = " ".join(self.SeriesDescription).lower().replace("rpt", "").replace("repeat", "")
+        # Does it look like DWI
+        if ("dwi" in desc):
+            return True
         return False
 
     def __is_fMRI(self):
@@ -321,6 +332,7 @@ class Study(object): # information about DICOM Study (i.e. about the "scan")
     def __init__(self, StudyInstanceUID):
         self.StudyInstanceUID = StudyInstanceUID
 
+        self.num_files = 0
         self.all_files_examined = False # whether all files in this Study have been examined.
 
         self.series = OrderedDict() # stores instances of Series object.
@@ -337,18 +349,22 @@ class Study(object): # information about DICOM Study (i.e. about the "scan")
         StudyDate = int(getDicomTag(file_path, "StudyDate"))
         self.StudyDate.add(StudyDate)
         
-    def addFile(self, file_path):
+    def addFile(self, file_path, quick=False):
         SeriesInstanceUID = getDicomTag(file_path, "SeriesInstanceUID")
-        # Add information about the current file to this Study object (will often be redundant).
-        self.addDir(file_path)
-        self.addStudyDate(file_path)
         
         # Add information about current file to an instance of the Series object.
         if (not SeriesInstanceUID in self.series.keys()):
             # Create an instance of the Series object and add it to this study's dict of series.
             self.series[SeriesInstanceUID] = Series(SeriesInstanceUID)
 
-        self.series[SeriesInstanceUID].addFile(file_path)
+        self.series[SeriesInstanceUID].addFile(file_path, quick=quick)
+
+        # Add information about the current file to this Study object (will often be redundant).
+        if (not quick) or (self.num_files==0):
+            self.addDir(file_path)
+            self.addStudyDate(file_path)
+
+        self.num_files += 1
 
     def setAllFilesExamined(self, value=True):
         for SeriesInstanceUID, series in self.series.iteritems():
@@ -380,9 +396,9 @@ def reportClassifications(studies):
                     series_dir = list(series.series_dir)[0]
                     print space(2)+os.path.basename(series_dir)
             
-def classifyDicom(in_dirs):
+def classifyDicom(in_dirs, quick=False, first_file_in_dir=False, debug=False):
     # Get path to all DICOM files in in_dirs
-    path_list = buildPathList(in_dirs)
+    path_list = buildPathList(in_dirs, first_file_in_dir=first_file_in_dir)
 
     studies = OrderedDict()
     
@@ -397,7 +413,7 @@ def classifyDicom(in_dirs):
             studies[StudyInstanceUID] = Study(StudyInstanceUID)
             
         # Add information about this file to the Study.
-        studies[StudyInstanceUID].addFile(path)
+        studies[StudyInstanceUID].addFile(path, quick=quick)
 
     for StudyInstanceUID, study in studies.iteritems():
         # Set the variables which record whether all files in the study/series have been examined. This is to ensure that measures which require knowledge of all files in the study/series to be known are not calculated prematurely.
@@ -410,7 +426,6 @@ def classifyDicom(in_dirs):
     reportClassifications(studies)
         
     # Print debug information.
-    debug = False
     if debug:
         for StudyInstanceUID, study in studies.iteritems():
             print 80*"="
@@ -426,10 +441,10 @@ def classifyDicom(in_dirs):
                 print "series_dir:", series.series_dir
                 #print "paths:", series.paths
                 print "SeriesDescription:", series.SeriesDescription
-                #print "ProtocolName:", series.ProtocolName
+                print "ProtocolName:", series.ProtocolName
                 #print "SequenceName:", series.SequenceName
                 print "ImageType:", series.ImageType
-                print "MRAcquisitionType:", series.MRAcquisitionType
+                #print "MRAcquisitionType:", series.MRAcquisitionType
                 #print "Manufacturer:", series.Manufacturer
                 #print "ManufacturerModelName:", series.ManufacturerModelName
                 #print "InstanceNumbers:", series.InstanceNumbers
@@ -449,16 +464,12 @@ if (__name__ == '__main__'):
     parser.add_argument("in_dirs", help="path to directories containing DICOM files to be classified", type=str, nargs="+")
     
     # Define optional arguments.
-#    parser.add_argument("-n", "--name", help="Subject ID to set PatientName tags to", type=str)
-#    parser.add_argument("-b", "--backup", help="add an option for backup. Do not back up by default.")
-#    parser.add_argument("-l", "--level", type=int, default=2, choices=[1,2,3], help="Set degree of anonymization (1: directly identifying information such as patient name, birth date, address, phone number. 2 (default): indirectly identifying information such as weight, age, physicians etc. 3: information about institution which performed scan, such as address, department etc.)")
-#    parser.add_argument('-m', "--modify_pid", help="Change PatientID to specified Subject ID. Default: False", action="store_true")
-#    parser.add_argument('-p', '--print-only', help='Print PHI-containing tags. Do not anonymize.', action='store_true')
-#    parser.add_argument('-r', '--recursive', action='store_true', help='if in_path is a directory, find and anononymize all files in that directory.')
-#    parser.add_argument("-r", "--records", help="list of records to export. Default: Export all records.", nargs="+", metavar=("ID_1", "ID_2"))
-
+    parser.add_argument("-q", "--quick", action="store_true", help="only use information from first file in each series. By default, read information from every file.")
+    parser.add_argument("-f", "--first_file_in_dir", action="store_true", help="only use information from first DICOM file in each directory. By default, read information from every file. Note that using this option only makes sense if each DICOM Series is stored in a separate directory.")
+    parser.add_argument("-d", "--debug", action="store_true", help="print debug information")
+    
     # Parse arguments.
     args = parser.parse_args()
 
     # Classify the input DICOM files.
-    classifyDicom(args.in_dirs)
+    classifyDicom(args.in_dirs, quick=args.quick, first_file_in_dir=args.first_file_in_dir, debug=args.debug)
