@@ -296,7 +296,7 @@ class Series(object): # information about the DICOM Series.
         desc = " ".join(self.SeriesDescription).lower().replace("rpt", "").replace("repeat", "")
         mracq = " ".join(self.MRAcquisitionType).lower()
         # Does it look like fMRI, and not a GRE field map?
-        if (("fmri" in desc) or ("fcmri" in desc) or ("resting" in desc) or ("bold" in desc)):
+        if (("fmri" in desc) or ("fcmri" in desc) or ("resting" in desc) or ("rsn" in desc) or ("bold" in desc)):
             # Does it look like a GRE field mapping?
             if (not self.__is_GRE()):
                 # Does it look like 2D?
