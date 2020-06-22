@@ -10,14 +10,14 @@ def plotRegistrations(target_path, overlay_paths, out_dir):
         display = plt.plot_img(target_path, display_mode='ortho', cmap='gray') # automatically generate cuts (number of cuts = cut_coods)
         display.add_overlay(overlay_path, cmap='YlOrRd_r', alpha=0.40)
 
-        out_name = os.path.basename(overlay_path).split('.nii.gz')[0]+"_on_main.png"
+        out_name = os.path.basename(overlay_path).split('.nii')[0]+"_on_main.png"
         out_path = os.path.join(out_dir, out_name)
         display.savefig(out_path)
         display.close()
 
 
 if __name__ == "__main__":
-    description = """Create figures of images registered to a target. For each input overlay image, create a separate figure of the overlay image overlaid on the target iamge."""
+    description = """Create figures of images overlaid on a main image. For each input overlay image, create a separate figure."""
     epilog = '' # """Text to follow argument explantion """
     parser = argparse.ArgumentParser(description=description, epilog=epilog, formatter_class=argparse.RawTextHelpFormatter)
     
