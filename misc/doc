@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+PATH=/usr/local/opt/gnu-sed/libexec/gnubin/:$PATH # In Mac, add path to GNU sed.
+
+now="$(TZ=":America/Toronto" date +'%Y-%m-%d %H:%M:%S')"
+me="Steven Ufkes"
+stamp="$now - $me\:"
+filename=README.txt
+
+# Create README.txt in current directory if it does not exist.
+if [ ! -f "$filename" ];
+then 
+    echo > "$filename" # sed doesn't seem to like empty files, so create a file with a newline instead.
+    sed -i '1i\'"$stamp" "$filename"
+else
+    sed -i '1i\'"$stamp" "$filename"
+    sed -i $'1 a \n' "$filename"
+fi
+
+# If adding a single-line comment, simply add the comment and do not open Vim. Else, open file in Vim starting at second line.
+if [ ! -z $1 ];
+then
+    comment="$@"
+    sed -i '2i\'"$comment" "$filename"
+else
+    sed -i '2G' "$filename"
+    vi +2 "$filename"
+fi
