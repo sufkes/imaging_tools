@@ -98,7 +98,7 @@ series_types = ["3DT1",
                 "fMRI",
                 "unknown"]
 
-class Series(object): # information about the DICOM Series.
+class Series(object): # information about the DICOM Series.    
     def __init__(self, SeriesInstanceUID):
         self.SeriesInstanceUID = SeriesInstanceUID # Can only have a single value by construction.
 
@@ -119,13 +119,6 @@ class Series(object): # information about the DICOM Series.
         self.maxInstanceNumber = None
 
         ## Need to handle this better. These need to be publicly available, and more easily modifiable.
-        self.type_dict = OrderedDict([("3DT1", self.__is_3DT1),
-                                      ("2DT2", self.__is_2DT2),
-                                      ("DTI", self.__is_DTI),
-                                      ("DTI_derived", self.__is_DTI_derived),
-                                      ("DWI", self.__is_DWI),
-                                      ("fMRI", self.__is_fMRI),
-                                      ("unknown", self.__is_unknown)])
         assert set(self.type_dict.keys()) == set(series_types)
         self.series_type = set() # hopefully one value
 
@@ -215,7 +208,7 @@ class Series(object): # information about the DICOM Series.
     def setQualityMetrics(self):
         self.checkAllFilesExamined() # ensure that all files have been examined.
         self.num_files_equals_max_instance = (self.num_files == self.maxInstanceNumber) # weak check to see whether all files in a Series are present.
-        
+
     def __is_3DT1(self):
         # Jessie says: The sequences for T1-weighted images are normally contain the following key words:
         # - T1-Ax-3D-FLASH
@@ -296,7 +289,7 @@ class Series(object): # information about the DICOM Series.
         desc = " ".join(self.SeriesDescription).lower().replace("rpt", "").replace("repeat", "")
         mracq = " ".join(self.MRAcquisitionType).lower()
         # Does it look like fMRI, and not a GRE field map?
-        if (("fmri" in desc) or ("fcmri" in desc) or ("resting" in desc) or ("bold" in desc)):
+        if (("fmri" in desc) or ("fcmri" in desc) or ("resting" in desc) or ("rsn" in desc) or ("bold" in desc)):
             # Does it look like a GRE field mapping?
             if (not self.__is_GRE()):
                 # Does it look like 2D?
@@ -305,14 +298,21 @@ class Series(object): # information about the DICOM Series.
         return False
 
     def __is_unknown(self):
-        # made these protected because __is_unknown should only be called in self.classify, after all the other classifications have been executed.
+        # made these protected because __is_unknown should only be called in elf.classify, after all the other classifications have been executed.
         if (self.series_type == set()):
             return True
-    
+        
+    type_dict = OrderedDict([("3DT1", __is_3DT1),
+                             ("2DT2", __is_2DT2),
+                             ("DTI", __is_DTI),
+                             ("DTI_derived", __is_DTI_derived),
+                             ("DWI", __is_DWI),
+                             ("fMRI", __is_fMRI),
+                             ("unknown", __is_unknown)])
     def classify(self):
         self.checkAllFilesExamined() # ensure that all files have been examined.
-        for type_name, type_func in self.type_dict.iteritems():
-            if type_func():
+        for type_name, type_func in Series.type_dict.iteritems():
+            if type_func(self):
                 self.series_type.add(type_name)
 
     def summarize(self):
