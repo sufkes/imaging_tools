@@ -51,7 +51,7 @@ def findClusters(volume, include_func=None):
             for kk in range(np.shape(volume)[2]):
                 coord = (ii,jj,kk)
                 voxel = volume[ii,jj,kk]
-                if (voxel > 0.0): # if voxel is in a cluster
+                if include_func(voxel): # if voxel is in a cluster
                     if (clusters_found): # if a cluster has already been identified
                         # Look for the current voxel in known clusters.
                         cluster_known = False
@@ -98,10 +98,14 @@ def clusterStats(path_unmasked, path_masked):
     volume_masked = img_masked.get_fdata()
 
     # Find clusters of significant "activation" (z>0) and "deactivation" (z<0).
-    clusters_activation_unmasked = findClusters(volume_unmasked, include_func=lambda x: x>0.0) # list of lists of (x,y,z) coordinate tuples
-    clusters_activation_masked = findClusters(volume_masked, include_func=lambda x: x>0.0) # list of lists of (x,y,z) coordinate tuples
-    clusters_deactivation_unmasked = findClusters(volume_unmasked, include_func=lambda x: x<0.0)
-    clusters_deactivation_masked = findClusters(volume_masked, include_func=lambda x: x<0.0)
+    def pos(x):
+        return x>0.0
+    def neg(x):
+        return x<0.0
+    clusters_activation_unmasked = findClusters(volume_unmasked, include_func=pos) # list of lists of (x,y,z) coordinate tuples
+    clusters_activation_masked = findClusters(volume_masked, include_func=pos) # list of lists of (x,y,z) coordinate tuples
+    clusters_deactivation_unmasked = findClusters(volume_unmasked, include_func=neg)
+    clusters_deactivation_masked = findClusters(volume_masked, include_func=neg)
 
     # Get volumes
     vol_activation_unmasked = getTotalClusterVol(clusters_activation_unmasked, vol_vox)
