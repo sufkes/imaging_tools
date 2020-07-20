@@ -120,13 +120,15 @@ def clusterStats(path_unmasked, path_masked):
     vol_big_cluster_deactivation_masked = getTotalBigClusterVol(clusters_deactivation_masked, vol_vox)
     vol_big_cluster_significant_masked = vol_big_cluster_activation_masked + vol_big_cluster_deactivation_masked # volume of significant voxels lying in "big" clusters within regions of interest (not in WM or CSF).
 
-    ratio = vol_big_cluster_significant_masked/vol_significant_unmasked # signal if >10%, noise if <10%
+    ratio_non_wm_csf = vol_significant_masked/vol_significant_unmasked
+    ratio_relevant = vol_big_cluster_significant_masked/vol_significant_unmasked # signal if >10%, noise if <10%
     
     print "Volume of significant voxels                      :", vol_significant_unmasked
     print "Volume of significant voxels outside of WM and CSF:", vol_significant_masked
     print "Volume of 'relevant' voxels                       :", vol_big_cluster_significant_masked    
-    print "Ratio V(relevant)/V(significant)                  :", ratio
-    return ratio
+    print "Ratio V(significant non-WM/CSF)/V(significant)    :", ratio_non_wm_csf
+    print "Ratio V(relevant)/V(significant)                  :", ratio_relevant
+    return ratio_relevant
 
 
 if (__name__ == '__main__'):
