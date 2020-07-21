@@ -77,12 +77,18 @@ compressAndUpload() {
 
     in_basename="$(basename "$in")"
     in_dirname="$(dirname "$in")"
+
+    job_name="$(echo "$in_basename" | sed "s/[^0-9a-zA-Z_-.]//g")" # needs to be a nice string with no spaces.
+    if [ -z "$job_name" ] # if job name is blank, set it to something.
+    then
+	job_name="compressAndUpload"
+    fi
     
     if [ ! -L "$in" ] # Don't do anything with symbolic links.
     then
 	qsub <<EOF
 #!/bin/bash
-#PBS -N compressAndUpload
+#PBS -N "$job_name"
 #PBS -l walltime=12:00:00
 #PBS -l mem=8g,vmem=8g
 #PBS -l nodes=1:ppn=1
@@ -146,9 +152,10 @@ then
     irm -r "$archive_dir" || exit 1
 fi
 
+# Create the base collection to store the cohort collection, if it doesn't exist.
+imkdir -p "$(dirname "$archive_dir")"
+
 # Move the new backup to the proper location.
 imv "$temp_archive" "$archive_dir" || exit 1
 
 EOF
-
-
