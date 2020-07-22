@@ -78,7 +78,8 @@ compressAndUpload() {
     in_basename="$(basename "$in")"
     in_dirname="$(dirname "$in")"
 
-    job_name="$(echo "$in_basename" | sed "s/[^0-9a-zA-Z_-.]//g")" # needs to be a nice string with no spaces.
+    #job_name="$(echo "$in_basename" | sed "s/[^0-9a-zA-Z_.-]//g")"
+    job_name="$(echo "$in_basename" | sed "s/[^[:alnum:]_.-]//g")"  # needs to be a nice string with no spaces.
     if [ -z "$job_name" ] # if job name is blank, set it to something.
     then
 	job_name="compressAndUpload"
@@ -147,7 +148,7 @@ module load irods_client || exit 1
 
 # Delete the old backup.
 ils "$archive_dir" &> /dev/null
-if [ $? -eq 0 ]
+if [ \$? -eq 0 ] # needs to be evaluated at runtime.
 then
     irm -r "$archive_dir" || exit 1
 fi
