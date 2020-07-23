@@ -88,6 +88,8 @@ if (__name__ == "__main__"):
     # Create argument parser.
     description = """
     Anonymize TWIX file header.
+
+    This function is not complete; it will not anonymize TWIX files.
     """
     parser = argparse.ArgumentParser(description=description)
     
