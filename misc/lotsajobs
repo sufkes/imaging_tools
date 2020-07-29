@@ -1,22 +1,23 @@
 #!/bin/bash
 
 usage() {
-echo "Submit a list of one-line jobs to the cluster. Each line of the input text file is submitted as a separate file.
+echo 'Submit a list of one-line jobs to the cluster. Each line of the input text file is submitted as a separate file. The command submitted to qsub is preceded by a `cd "$PWD"` command.
 
 Usage:
 
 lotsajobs JOB_FILE [args_passed_to_qsub_commands]
-"
+'
 }
 
 test -z "$1" && usage # print help if no args.
 
 job_list="$1" # each line will be a separate job.
 shift
-qsub_args="$@"
+qsub_args=$@
 
-while read line
+while read line || [ "$line" ]
 do
-	echo "$line" | qsub "$qsub_args"
-EOF
+    echo "cd "$PWD";" $line | qsub $qsub_args
 done < <(cat "$job_list")
+
+# Note from Unix Stack Exchange: "read returns a falsy value if it meets end-of-file before a newline, but even if it does, it still assigns the value it read. So, we can check if the final call of read returns something else than an empty line, and process it as normal."
