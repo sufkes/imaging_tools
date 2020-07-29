@@ -1,0 +1,22 @@
+#!/bin/bash
+
+usage() {
+echo "Submit a list of one-line jobs to the cluster. Each line of the input text file is submitted as a separate file.
+
+Usage:
+
+lotsajobs JOB_FILE [args_passed_to_qsub_commands]
+"
+}
+
+test -z "$1" && usage # print help if no args.
+
+job_list="$1" # each line will be a separate job.
+shift
+qsub_args="$@"
+
+while read line
+do
+	echo "$line" | qsub "$qsub_args"
+EOF
+done < <(cat "$job_list")
