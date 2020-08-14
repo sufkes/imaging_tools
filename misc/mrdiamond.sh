@@ -25,8 +25,8 @@ fi
 
 module load dcmtk
 module load parallel
-export PATH=$PATH:/hpf/largeprojects/smiller/users/sufkes/sufkes_imaging/dicom
-export PATH=$PATH:/hpf/largeprojects/smiller/users/sufkes/sufkes_imaging/misc
+export PATH=$PATH:/home/sufkes/sufkes_imaging/dicom
+export PATH=$PATH:/home/sufkes/sufkes_imaging/misc
 
 NP=$(wc -l $PBS_NODEFILE | awk '{print $1}') # Should return the number of physical CPU cores.
 
@@ -66,7 +66,7 @@ find raw -type f | grep ".rda" | while read ff; do cp -n "$ff" rda; done
 
 # Anonymize RDA
 echo "Anonymizing RDA files."
-find rda -type f | while read ff; do anonRDA.py "$ff" -n "$subject"; done
+find rda -type f | while read ff; do anonRda.py "$ff" -n "$subject"; done
 
 # Rename RDA folder
 echo "Renaming RDA folder and files."
