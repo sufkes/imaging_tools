@@ -45,11 +45,6 @@ def distanceCovarianceSquared(X, Y, double=False):
     A = center(X, double=double)
     B = center(Y, double=double)
 
-    #print "X centered:"
-    #print A
-    #print "Y centered:"
-    #print B
-    
     n = A.shape[0]
     if double:
         K = n**2
@@ -74,30 +69,33 @@ def distanceCovarianceSquared(X, Y, double=False):
     #val = 1.0/K*np.sum(np.power(A, 2))
     #return val
     
-def distanceCorrelation(X, Y, double=False):
+def distanceCorrelation(X, Y, double=False, verbose=False):
 
     d_cov_squared = distanceCovarianceSquared(X, Y, double=double)
-    print "distanceCovariance(X,Y)^2:", d_cov_squared
-    print "sqrt(|distanceCovariance(X,Y)|^2):", np.sqrt(np.abs(d_cov_squared))
+    if verbose:
+        print "distanceCovariance(X,Y)^2:", d_cov_squared
+        print "sqrt(|distanceCovariance(X,Y)|^2):", np.sqrt(np.abs(d_cov_squared))
 
     d_var_x = np.sqrt(distanceCovarianceSquared(X, X, double=double))
     d_var_y = np.sqrt(distanceCovarianceSquared(Y, Y, double=double))
-    print "distanceCovariance(X):", d_var_x
-    print "distanceCovariance(Y):", d_var_y
+    if verbose:
+        print "distanceCovariance(X):", d_var_x
+        print "distanceCovariance(Y):", d_var_y
 
     # Handle zero variance cases as in 2014-Szekely paper.
     try:
         d_cor_squared = d_cov_squared/(d_var_x*d_var_y)
     except ZeroDivisionError:
         d_cor_squared = 0.0
-        
-    print "distanceCorrelation(X, Y)^2:", d_cor_squared
-    print "sqrt(|distanceCorrelation(X, Y)^2|):", np.sqrt(np.abs(d_cor_squared))
+
     geerligs_measure = np.sqrt(max(0.0, d_cor_squared)) # This is the measure used in 2016-L Geerligs, where they state that negative values correspond to independence.
-    print "sqrt(max(0, distanceCorrelation(X, Y)^2)):", geerligs_measure
+    if verbose:
+        print "distanceCorrelation(X, Y)^2:", d_cor_squared
+        print "sqrt(|distanceCorrelation(X, Y)^2|):", np.sqrt(np.abs(d_cor_squared))
+        print "sqrt(max(0, distanceCorrelation(X, Y)^2)):", geerligs_measure
     return geerligs_measure
 
-def normalize_time_series(X):
+def normalizeTimeSeries(X):
     n = float(X.shape[0])
     for jj in range(X.shape[1]):
         col_mean = np.mean(X[:, jj])
@@ -109,11 +107,11 @@ if (__name__ == "__main__"):
     # X and Y are matrices of n time points by v voxels.
     X = np.array([5.1, 3.5, 4.9, 3.0, 4.7, 3.2, 4.6, 3.1, 5.0, 3.6]).reshape(5,2)
     Y = np.array([7.0, 3.2, 6.4, 3.2, 6.9, 3.1, 5.5, 2.3, 6.5, 2.8]).reshape(5,2)
-    #X = normalize_time_series(X)
-    #Y = normalize_time_series(Y)
+    #X = normalizeTimeSeries(X)
+    #Y = normalizeTimeSeries(Y)
     
     print "U-centered distanceCorrelation(X, Y):"
-    distanceCorrelation(X, Y)
+    distanceCorrelation(X, Y, verbose=True)
     print
     print "Double-centered distanceCorrelation(X, Y):"
-    distanceCorrelation(X, Y, double=True)
+    distanceCorrelation(X, Y, double=True, verbose=True)
