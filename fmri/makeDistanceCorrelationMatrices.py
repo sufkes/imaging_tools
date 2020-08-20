@@ -4,6 +4,7 @@ import os, sys
 import argparse
 import glob
 import numpy as np
+from matplotlib import pyplot as plt
 from collections import OrderedDict
 from pprint import pprint
 from distanceCorrelation import distanceCorrelation, normalizeTimeSeries
@@ -48,9 +49,24 @@ class Subject(object):
                 distance_correlation_squared = distanceCorrelation(time_series_i, time_series_j)[0]
                 geerligs_measure = np.sqrt(max(0.0, distance_correlation_squared))
                 dcor_matrix[roi_index_i, roi_index_j] = geerligs_measure
-                dcor_matrix[roi_index_j, roi_index_i] = geerligs_measure            
+                dcor_matrix[roi_index_j, roi_index_i] = geerligs_measure
+        self.dcor_matrix = dcor_matrix
+
+    def saveDistanceCorrelationMatrix(self, out_dir):
+        out_filename = self.subject_id + ".txt"
+        out_path = os.path.join(out_dir, out_filename)
+        np.savetxt(out_path, self.dcor_matrix)
+
+    def plotDistanceCorrelationMatrix(self, out_dir):
+        out_filename = self.subject_id + ".png"
+        out_path = os.path.join(out_dir, out_filename)
+#        fig = plt.figure()
+        plt.imshow(self.dcor_matrix, cmap='hot')
+        plt.colorbar()
+        plt.savefig(out_path)
+        plt.close()
         
-def makeDistanceCorrelationMatrices(in_dir):
+def makeDistanceCorrelationMatrices(in_dir, out_dir):
     files = glob.glob(os.path.join(in_dir,"*"))
     files.sort()
 
@@ -77,22 +93,32 @@ def makeDistanceCorrelationMatrices(in_dir):
         raise Exception("Subjects must all have time series for the same number of ROIs")
     else:
         num_rois = list(num_rois)[0]
-        print "Number of ROIs:", num_rois    
+        #print "Number of ROIs:", num_rois    
 
     # Load the time series as numpy arrays.
+    print "Loading time series into NumPy arrays."
     for subject_id, subject in subjects.iteritems():
-        print "Loading time series into NumPy arrays for subject:", subject_id
         subject.loadTimeSeries()
-        break
 
     # Variance normalize the time series.
+    print "Variance normalizing time series."
     for subject_id, subject in subjects.iteritems():
         subject.normalizeTimeSeries()
         
     # Generate a distance correlation matrix for each subject.
+    print "Generating distance correlation matrices."
     for subject_id, subject in subjects.iteritems():
         subject.makeDistanceCorrelationMatrix()
-        pass
+
+    # Save distance correlation matrix for each subject.
+    print "Save distance correlation matrices to text."
+    for subject_id, subject in subjects.iteritems():
+        subject.saveDistanceCorrelationMatrix(out_dir)
+
+    # Save distance correlation matrix plots each subject.
+    print "Plot distance correlation matrices."
+    for subject_id, subject in subjects.iteritems():
+        subject.plotDistanceCorrelationMatrix(out_dir)
     return
 
 if (__name__ == '__main__'):
@@ -106,6 +132,7 @@ Time series should all be in same folder, with names "<subject_ID>_<ROI_number>.
     
     # Define positional arguments.
     parser.add_argument("in_dir", help="path to directory containing time series text files.")
+    parser.add_argument("out_dir", help="path to directory to which correlation matrices will be saved.")
     
     # Define optional arguments.
 #    parser.add_argument("-n", "--name", help="Subject ID to set PatientName tags to", type=str)
@@ -113,4 +140,4 @@ Time series should all be in same folder, with names "<subject_ID>_<ROI_number>.
     # Parse arguments.
     args = parser.parse_args()
 
-    makeDistanceCorrelationMatrices(args.in_dir)
+    makeDistanceCorrelationMatrices(args.in_dir, args.out_dir)
