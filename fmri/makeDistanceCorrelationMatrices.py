@@ -90,9 +90,6 @@ def makeDistanceCorrelationMatrices(in_dir):
     # Variance normalize the time series.
     for subject_id, subject in subjects.iteritems():
         subject.normalizeTimeSeries()
-        for roi_name, time_series in subject.time_series.iteritems():
-            print "mean:", time_series.mean(axis=0)
-            print "std:", time_series.std(axis=0, ddof=1)
         
     # Generate a distance correlation matrix for each subject.
     for subject_id, subject in subjects.iteritems():
