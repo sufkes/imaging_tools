@@ -12,6 +12,11 @@ from collections import OrderedDict
 from pprint import pprint
 from distanceCorrelation import distanceCorrelation, normalizeTimeSeries
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import misc
+#from misc.Timer import Timer
+from misc.ProgressBar import ProgressBar
+
 def getRoiName(path):
     # Get the ROI name from the time series path.
     # e.g.  /path/to/time_series/9283U039_12.txt -> 12
@@ -70,27 +75,29 @@ class Subject(object):
         plt.close()
         
 def makeDistanceCorrelationMatrices(in_dir, out_dir):
+    # Get list of time series files.
     files = glob.glob(os.path.join(in_dir,"*"))
     files.sort()
 
+    # Build dict of subjects
     subjects = {}
-    
     for path in files:
         subject_id = os.path.basename(path).split("_")[0]
-#        roi_index = os.path.basename(path).split("_")[1].split(".")[0]
         roi_name = getRoiName(path)
 
         # Add instance of Subject object for current subject to dict of all subjects.
         if (not subject_id in subjects):
             subjects[subject_id] = Subject(subject_id)
-
         subjects[subject_id].addPath(path)
+        
     for subject_id, subject in subjects.iteritems():
         num_rois = set()
         subject.sortAndCountPaths()
         num_rois.add(subject.num_rois)
-        #pprint(subject.time_series_paths)
 
+    # Count subjects
+    num_subjects = len(subjects)
+        
     # Verify that all subjects have time series for the same number of ROIs.
     if (len(num_rois) != 1):
         raise Exception("Subjects must all have time series for the same number of ROIs")
@@ -99,29 +106,45 @@ def makeDistanceCorrelationMatrices(in_dir, out_dir):
         #print "Number of ROIs:", num_rois    
 
     # Load the time series as numpy arrays.
-    print "Loading time series into NumPy arrays."
+    p=ProgressBar("Loading time series into NumPy arrays.")
+    n=0
     for subject_id, subject in subjects.iteritems():
         subject.loadTimeSeries()
+        n+=1
+        p.update(float(n)/float(num_subjects))
+        
 
     # Variance normalize the time series.
-    print "Variance normalizing time series."
+    p=ProgressBar("Variance normalizing time series.")
+    n=0
     for subject_id, subject in subjects.iteritems():
         subject.normalizeTimeSeries()
+        n+=1
+        p.update(float(n)/float(num_subjects))
         
     # Generate a distance correlation matrix for each subject.
-    print "Generating distance correlation matrices."
+    p=ProgressBar("Generating distance correlation matrices.")
+    n=0
     for subject_id, subject in subjects.iteritems():
         subject.makeDistanceCorrelationMatrix()
-
+        n+=1
+        p.update(float(n)/float(num_subjects))
+        
     # Save distance correlation matrix for each subject.
-    print "Save distance correlation matrices to text."
+    p=ProgressBar("Save distance correlation matrices to text.")
+    n=0
     for subject_id, subject in subjects.iteritems():
         subject.saveDistanceCorrelationMatrix(out_dir)
+        n+=1
+        p.update(float(n)/float(num_subjects))
 
     # Save distance correlation matrix plots each subject.
-    #print "Plot distance correlation matrices."
-    #for subject_id, subject in subjects.iteritems():
-        #subject.plotDistanceCorrelationMatrix(out_dir)
+    p=ProgressBar("Plot distance correlation matrices.")
+    n=0
+    for subject_id, subject in subjects.iteritems():
+        subject.plotDistanceCorrelationMatrix(out_dir)
+        n+=1
+        p.update(float(n)/float(num_subjects))
     return
 
 if (__name__ == '__main__'):
