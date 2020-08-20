@@ -72,8 +72,7 @@ class Subject(object):
     def plotDistanceCorrelationMatrix(self, out_dir):
         out_filename = self.subject_id + ".png"
         out_path = os.path.join(out_dir, out_filename)
-#        fig = plt.figure()
-        plt.imshow(self.dcor_matrix, cmap='hot')
+        plt.imshow(self.dcor_matrix, cmap='hot', vmin=0.0, vmax=1.0)
         plt.colorbar()
         plt.savefig(out_path)
         plt.close()

@@ -87,22 +87,23 @@ def normalizeTimeSeries(in_dir, out_dir):
         #print "Number of ROIs:", num_rois    
 
     # Load the time series as numpy arrays.
-    p=ProgressBar("Loading time series into NumPy arrays")
+    p=ProgressBar("Loading time series into NumPy arrays and variance normalizing")
     n=0
     for subject_id, subject in subjects.iteritems():
         subject.loadTimeSeries()
+        subject.normalizeTimeSeries()
         n+=1
         p.update(float(n)/float(num_subjects))
     p.stop()
 
     # Variance normalize the time series.
-    p=ProgressBar("Variance normalizing time series")
-    n=0
-    for subject_id, subject in subjects.iteritems():
-        subject.normalizeTimeSeries()
-        n+=1
-        p.update(float(n)/float(num_subjects))
-    p.stop()
+#    p=ProgressBar("Variance normalizing time series")
+#    n=0
+#    for subject_id, subject in subjects.iteritems():
+#        subject.normalizeTimeSeries()
+#        n+=1
+#        p.update(float(n)/float(num_subjects))
+#    p.stop()
         
     # Save normalized time series for each subject.
     p=ProgressBar("Save time series to text")
