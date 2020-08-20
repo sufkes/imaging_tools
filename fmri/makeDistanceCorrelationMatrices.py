@@ -32,6 +32,10 @@ class Subject(object):
             time_series = np.loadtxt(path, skiprows=3)
             self.time_series[roi_name] = time_series
 
+    def normalizeTimeSeries(self):
+        for roi_name, time_series in self.time_series.iteritems():
+            self.time_series[roi_name] = (time_series - time_series.mean(axis=0))/time_series.std(axis=0, ddof=1)
+            
     def makeDistanceCorrelationMatrix(self):
         dcor_matrix = np.identity(self.num_rois)
         for roi_name_i, time_series_i in self.time_series.iteritems():
@@ -40,11 +44,11 @@ class Subject(object):
                 roi_name_j = str(roi_index_j + 1)
                 time_series_i = self.time_series[roi_name_i]
                 time_series_j = self.time_series[roi_name_j]
-                print "Computing distance correlation between ROIs: ("+roi_name_i+", "+roi_name_j+")."
-                distance_correlation = distanceCorrelation(time_series_i, time_series_j)
-                print distance_correlation
-                dcor_matrix[roi_index_i, roi_index_j] = distance_correlation
-                dcor_matrix[roi_index_j, roi_index_i] = distance_correlation
+                #print "Computing distance correlation between ROIs: ("+roi_name_i+", "+roi_name_j+")."
+                distance_correlation_squared = distanceCorrelation(time_series_i, time_series_j)[0]
+                geerligs_measure = np.sqrt(max(0.0, distance_correlation_squared))
+                dcor_matrix[roi_index_i, roi_index_j] = geerligs_measure
+                dcor_matrix[roi_index_j, roi_index_i] = geerligs_measure
             print roi_name_i
             
         
@@ -79,10 +83,20 @@ def makeDistanceCorrelationMatrices(in_dir):
 
     # Load the time series as numpy arrays.
     for subject_id, subject in subjects.iteritems():
+        print "Loading time series into NumPy arrays for subject:", subject_id
         subject.loadTimeSeries()
+        break
+
+    # Variance normalize the time series.
+    for subject_id, subject in subjects.iteritems():
+        subject.normalizeTimeSeries()
+        for roi_name, time_series in subject.time_series.iteritems():
+            print "mean:", time_series.mean(axis=0)
+            print "std:", time_series.std(axis=0, ddof=1)
         
     # Generate a distance correlation matrix for each subject.
     for subject_id, subject in subjects.iteritems():
+        subject.makeDistanceCorrelationMatrix()
         pass
     return
 
