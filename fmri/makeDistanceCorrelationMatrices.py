@@ -48,9 +48,7 @@ class Subject(object):
                 distance_correlation_squared = distanceCorrelation(time_series_i, time_series_j)[0]
                 geerligs_measure = np.sqrt(max(0.0, distance_correlation_squared))
                 dcor_matrix[roi_index_i, roi_index_j] = geerligs_measure
-                dcor_matrix[roi_index_j, roi_index_i] = geerligs_measure
-            print roi_name_i
-            
+                dcor_matrix[roi_index_j, roi_index_i] = geerligs_measure            
         
 def makeDistanceCorrelationMatrices(in_dir):
     files = glob.glob(os.path.join(in_dir,"*"))
