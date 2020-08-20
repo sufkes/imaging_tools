@@ -4,6 +4,7 @@ import os, sys
 import argparse
 import glob
 import numpy as np
+np.seterr(all='raise') # raise exceptions instead of warnings.
 #from matplotlib import pyplot as plt
 import matplotlib
 matplotlib.use('agg')
@@ -43,7 +44,10 @@ class Subject(object):
 
     def normalizeTimeSeries(self):
         for roi_name, time_series in self.time_series.iteritems():
-            self.time_series[roi_name] = (time_series - time_series.mean(axis=0))/time_series.std(axis=0, ddof=1)
+            try:
+                self.time_series[roi_name] = (time_series - time_series.mean(axis=0))/time_series.std(axis=0, ddof=1)
+            except:
+                print "Error while normalizing time series for (subject, ROI):", self.subject_id, roi_name
             
     def makeDistanceCorrelationMatrix(self):
         dcor_matrix = np.identity(self.num_rois)
@@ -112,7 +116,7 @@ def makeDistanceCorrelationMatrices(in_dir, out_dir):
         subject.loadTimeSeries()
         n+=1
         p.update(float(n)/float(num_subjects))
-        
+    p.stop()
 
     # Variance normalize the time series.
     p=ProgressBar("Variance normalizing time series.")
@@ -121,6 +125,7 @@ def makeDistanceCorrelationMatrices(in_dir, out_dir):
         subject.normalizeTimeSeries()
         n+=1
         p.update(float(n)/float(num_subjects))
+    p.stop()
         
     # Generate a distance correlation matrix for each subject.
     p=ProgressBar("Generating distance correlation matrices.")
@@ -129,6 +134,7 @@ def makeDistanceCorrelationMatrices(in_dir, out_dir):
         subject.makeDistanceCorrelationMatrix()
         n+=1
         p.update(float(n)/float(num_subjects))
+    p.stop()
         
     # Save distance correlation matrix for each subject.
     p=ProgressBar("Save distance correlation matrices to text.")
@@ -137,7 +143,8 @@ def makeDistanceCorrelationMatrices(in_dir, out_dir):
         subject.saveDistanceCorrelationMatrix(out_dir)
         n+=1
         p.update(float(n)/float(num_subjects))
-
+    p.stop()
+        
     # Save distance correlation matrix plots each subject.
     p=ProgressBar("Plot distance correlation matrices.")
     n=0
@@ -145,7 +152,9 @@ def makeDistanceCorrelationMatrices(in_dir, out_dir):
         subject.plotDistanceCorrelationMatrix(out_dir)
         n+=1
         p.update(float(n)/float(num_subjects))
+    p.stop()
     return
+
 
 if (__name__ == '__main__'):
     # Create argument parser
