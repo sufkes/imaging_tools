@@ -4,7 +4,10 @@ import os, sys
 import argparse
 import glob
 import numpy as np
-from matplotlib import pyplot as plt
+#from matplotlib import pyplot as plt
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
 from collections import OrderedDict
 from pprint import pprint
 from distanceCorrelation import distanceCorrelation, normalizeTimeSeries
@@ -116,9 +119,9 @@ def makeDistanceCorrelationMatrices(in_dir, out_dir):
         subject.saveDistanceCorrelationMatrix(out_dir)
 
     # Save distance correlation matrix plots each subject.
-    print "Plot distance correlation matrices."
-    for subject_id, subject in subjects.iteritems():
-        subject.plotDistanceCorrelationMatrix(out_dir)
+    #print "Plot distance correlation matrices."
+    #for subject_id, subject in subjects.iteritems():
+        #subject.plotDistanceCorrelationMatrix(out_dir)
     return
 
 if (__name__ == '__main__'):
