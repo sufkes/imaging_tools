@@ -49,36 +49,13 @@ class Subject(object):
             except:
                 print "Error while normalizing time series for (subject, ROI):", self.subject_id, roi_name
             
-    def makeDistanceCorrelationMatrix(self):
-        dcor_matrix = np.identity(self.num_rois)
-        for roi_name_i, time_series_i in self.time_series.iteritems():
-            roi_index_i = int(roi_name_i) - 1
-            for roi_index_j in range(roi_index_i+1, self.num_rois):
-                roi_name_j = str(roi_index_j + 1)
-                time_series_i = self.time_series[roi_name_i]
-                time_series_j = self.time_series[roi_name_j]
-                #print "Computing distance correlation between ROIs: ("+roi_name_i+", "+roi_name_j+")."
-                distance_correlation_squared = distanceCorrelation(time_series_i, time_series_j)[0]
-                geerligs_measure = np.sqrt(max(0.0, distance_correlation_squared))
-                dcor_matrix[roi_index_i, roi_index_j] = geerligs_measure
-                dcor_matrix[roi_index_j, roi_index_i] = geerligs_measure
-        self.dcor_matrix = dcor_matrix
+    def saveTimeSeries(self, out_dir):
+        for roi_name, time_series in self.time_series.iteritems():
+            out_filename = self.subject_id + "_" + roi_name + ".txt"
+            out_path = os.path.join(out_dir, out_filename)
+            np.savetxt(out_path, self.time_series)
 
-    def saveDistanceCorrelationMatrix(self, out_dir):
-        out_filename = self.subject_id + ".txt"
-        out_path = os.path.join(out_dir, out_filename)
-        np.savetxt(out_path, self.dcor_matrix)
-
-    def plotDistanceCorrelationMatrix(self, out_dir):
-        out_filename = self.subject_id + ".png"
-        out_path = os.path.join(out_dir, out_filename)
-#        fig = plt.figure()
-        plt.imshow(self.dcor_matrix, cmap='hot')
-        plt.colorbar()
-        plt.savefig(out_path)
-        plt.close()
-        
-def makeDistanceCorrelationMatrices(in_dir, out_dir, skip_normalization=False):
+def normalizeTimeSeries(in_dir, out_dir):
     # Get list of time series files.
     files = glob.glob(os.path.join(in_dir,"*"))
     files.sort()
@@ -110,7 +87,7 @@ def makeDistanceCorrelationMatrices(in_dir, out_dir, skip_normalization=False):
         #print "Number of ROIs:", num_rois    
 
     # Load the time series as numpy arrays.
-    p=ProgressBar("Loading time series into NumPy arrays.")
+    p=ProgressBar("Loading time series into NumPy arrays")
     n=0
     for subject_id, subject in subjects.iteritems():
         subject.loadTimeSeries()
@@ -119,47 +96,28 @@ def makeDistanceCorrelationMatrices(in_dir, out_dir, skip_normalization=False):
     p.stop()
 
     # Variance normalize the time series.
-    if (not skip_normalization):
-        p=ProgressBar("Variance normalizing time series.")
-        n=0
-        for subject_id, subject in subjects.iteritems():
-            subject.normalizeTimeSeries()
-            n+=1
-            p.update(float(n)/float(num_subjects))
-        p.stop()
-        
-    # Generate a distance correlation matrix for each subject.
-    p=ProgressBar("Generating distance correlation matrices.")
+    p=ProgressBar("Variance normalizing time series")
     n=0
     for subject_id, subject in subjects.iteritems():
-        subject.makeDistanceCorrelationMatrix()
+        subject.normalizeTimeSeries()
         n+=1
         p.update(float(n)/float(num_subjects))
     p.stop()
         
-    # Save distance correlation matrix for each subject.
-    p=ProgressBar("Save distance correlation matrices to text.")
+    # Save normalized time series for each subject.
+    p=ProgressBar("Save time series to text")
     n=0
     for subject_id, subject in subjects.iteritems():
-        subject.saveDistanceCorrelationMatrix(out_dir)
+        subject.saveTimeSeries(out_dir)
         n+=1
         p.update(float(n)/float(num_subjects))
-    p.stop()
-        
-    # Save distance correlation matrix plots each subject.
-    p=ProgressBar("Plot distance correlation matrices.")
-    n=0
-    for subject_id, subject in subjects.iteritems():
-        subject.plotDistanceCorrelationMatrix(out_dir)
-        n+=1
-        p.update(float(n)/float(num_subjects))
-    p.stop()
+    p.stop()        
     return
 
 
 if (__name__ == '__main__'):
     # Create argument parser
-    description = """Generate distance correlation matrices for time series extracted from ROIs. 
+    description = """Normalize time series extracted from ROIs. 
 
 Each time series will be separately variance normalized, as in L. Geerligs et al. (2016).
 
@@ -170,10 +128,8 @@ Time series should all be in same folder, with names "<subject_ID>_<ROI_number>.
     parser.add_argument("in_dir", help="path to directory containing time series text files.")
     parser.add_argument("out_dir", help="path to directory to which correlation matrices will be saved.")
     
-    # Define optional arguments.
-    parser.add_argument("-n", "--skip_normalization", help="skip variance normalization of time series if already done", action="store_true")
 
     # Parse arguments.
     args = parser.parse_args()
 
-    makeDistanceCorrelationMatrices(args.in_dir, args.out_dir, skip_normalization=args.skip_normalization)
+    normalizeTimeSeries(args.in_dir, args.out_dir)
