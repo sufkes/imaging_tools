@@ -47,8 +47,8 @@ class Subject(object):
             try:
                 self.time_series[roi_name] = (time_series - time_series.mean(axis=0))/time_series.std(axis=0, ddof=1)
             except:
-                print "Error while normalizing time series for (subject, ROI):", self.subject_id, roi_name
-                print "Number of voxels with zero variance:", list(time_series.std(axis=0, ddof=1) <= 0.0).count(True)
+                print "Error normalizing time series: (subject, ROI, voxels in ROI, zero voxels in ROI):", self.subject_id, roi_name, time_series.shape[1], list(time_series.std(axis=0, ddof=1) <= 0.0).count(True)
+#                print "Number of voxels with zero variance:", list(time_series.std(axis=0, ddof=1) <= 0.0).count(True)
             
     def saveTimeSeries(self, out_dir):
         for roi_name, time_series in self.time_series.iteritems():
