@@ -2,6 +2,7 @@
 
 import os, sys
 import argparse
+from collections import OrderedDict
 from matplotlib import pyplot as plt
 import numpy as np
 
@@ -62,6 +63,30 @@ def plotRms(in_paths, out_dir, num_vols_to_exclude=20):
             else:
                 break # stop once we get to a volume with > 0.25 mm of relative RMS displacement.
 
+        # Print the number of volumes with rel_rms (average of motion values from previous and next frame).
+        num_spikes = OrderedDict([(dist, 0) for dist in [0.25, 0.5, 1.0, 2.0, 4.0]])
+        for vol in range(ext_first_vol, ext_last_vol+1):
+            badness = data_rel_search[vol]
+            for dist, count in num_spikes.iteritems():
+                if (badness >= dist):
+                    num_spikes[dist] += 1
+
+        num_spikes_filename = "num_spikes.csv"
+        num_spikes_path = os.path.join(out_dir, num_spikes_filename)
+
+        # Write header if file does not exist.
+        if (not os.path.exists(num_spikes_path)):
+            with open(num_spikes_path, 'w') as handle:
+                line = ",".join(["subject_id"] + [str(key)+"mm_spikes_in_included_vols" for key in num_spikes.keys()])+"\n"
+                print line
+                handle.write(line)
+            
+        with open(num_spikes_path, 'a') as handle:
+            subject = os.path.basename(in_path).split('_')[0]
+            line = ",".join([subject] + [str(val) for val in num_spikes.values()])+"\n"
+            print line
+            handle.write(line)
+            
         data = np.loadtxt(in_path)
 
         fig = plt.figure()

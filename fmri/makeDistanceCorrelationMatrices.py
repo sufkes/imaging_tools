@@ -11,7 +11,7 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from collections import OrderedDict
 from pprint import pprint
-from distanceCorrelation import distanceCorrelation, normalizeTimeSeries
+from distanceCorrelation import distanceCorrelation
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import misc
@@ -24,6 +24,8 @@ def getRoiName(path):
     return os.path.basename(path).split("_")[1].split(".")[0]
     
 class Subject(object):
+    roi_sizes = OrderedDict()
+    
     def __init__(self, subject_id):
         self.subject_id = subject_id
         self.time_series_paths = []
@@ -41,13 +43,13 @@ class Subject(object):
             roi_name = getRoiName(path)
             time_series = np.loadtxt(path, skiprows=3)
             self.time_series[roi_name] = time_series
+            if (not roi_name in Subject.roi_sizes):
+                Subject.roi_sizes[roi_name] = [time_series.shape[1], 0, time_series.shape[1]] # store [original ROI size, number of voxels removed, final ROI size]
 
     def normalizeTimeSeries(self):
         for roi_name, time_series in self.time_series.iteritems():
-            try:
-                self.time_series[roi_name] = (time_series - time_series.mean(axis=0))/time_series.std(axis=0, ddof=1)
-            except:
-                print "Error while normalizing time series for (subject, ROI):", self.subject_id, roi_name
+            self.time_series[roi_name] = (time_series - time_series.mean(axis=0))/time_series.std(axis=0, ddof=1)
+            #print "Error while normalizing time series for (subject, ROI):", self.subject_id, roi_name
             
     def makeDistanceCorrelationMatrix(self):
         dcor_matrix = np.identity(self.num_rois)
@@ -83,7 +85,7 @@ def makeDistanceCorrelationMatrices(in_dir, out_dir, skip_normalization=False):
     files.sort()
 
     # Build dict of subjects
-    subjects = {}
+    subjects = OrderedDict()
     for path in files:
         subject_id = os.path.basename(path).split("_")[0]
         roi_name = getRoiName(path)
@@ -117,6 +119,37 @@ def makeDistanceCorrelationMatrices(in_dir, out_dir, skip_normalization=False):
         p.update(float(n)/float(num_subjects))
     p.stop()
 
+    # Restrict each ROI to a region in which voxels are non-zero (i.e. not masked out) for all subjects.
+    valid_voxels = OrderedDict()
+    #print Subject.roi_sizes
+    for roi_name, roi_size_list in Subject.roi_sizes.iteritems():
+        roi_size_orig = roi_size_list[0]
+        valid_voxels[roi_name] = np.zeros((num_subjects, roi_size_orig), dtype=bool)
+        
+        # Find the nonzero voxels for each subject.
+        i=0
+        for subject_id, subject in subjects.iteritems():
+            time_series = subject.time_series[roi_name]
+            valid_voxels[roi_name][i, :] = ~(time_series == 0.0).all(axis=0)
+            i+=1
+
+        # Find the voxels which are nonzero for all subjects.
+        valid_voxels[roi_name] = valid_voxels[roi_name].all(axis=0)
+
+        # Record the number of voxels removed.
+        roi_size_list[2] = np.count_nonzero(valid_voxels[roi_name])
+        roi_size_list[1] = roi_size_list[0] - roi_size_list[2]
+
+        # Remove the voxels from each subject's time series.
+        for subject_id, subject in subjects.iteritems():
+            time_series = subject.time_series[roi_name]
+            nonzero_time_series = time_series[:, valid_voxels[roi_name]]
+            subject.time_series[roi_name] = nonzero_time_series
+
+    print "Voxels removed from ROIs [# original, # removed, # final]:"
+    for roi_name, roi_size_list in Subject.roi_sizes.iteritems():
+        print roi_name, roi_size_list
+    
     # Variance normalize the time series.
     if (not skip_normalization):
         p=ProgressBar("Variance normalizing time series.")
