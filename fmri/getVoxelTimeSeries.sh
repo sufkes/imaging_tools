@@ -25,7 +25,7 @@ while read bold
 do
     while read mask
     do
-	out_path="$out_dir"/"$(basename "$bold" | cut -d . -f 1)"_"$(basename "$mask" | cut -d _ -f 2)".txt
+	out_path="$out_dir"/"$(basename "$bold" | cut -d . -f 1)"_"$(basename "$mask")".txt
 	fslmeants -i "$bold" -m "$mask" -o "$out_path" --showall 
     done < <(cat "$mask_list")
 done < <(cat "$bold_list")
