@@ -7,7 +7,7 @@ import pandas
 import glob
 
 
-def visitIdReport(in_dir, out_path, ignore_symlinks=False):
+def visitIdReport(in_dir, out_path, ignore_symlinks=False, replace_visit_prefix=False):
     report_df = pandas.DataFrame()
     dir_list = glob.glob(in_dir+'/*')
     dir_list.sort()
@@ -28,6 +28,9 @@ def visitIdReport(in_dir, out_path, ignore_symlinks=False):
         date = date[:4]+'-'+date[4:6]+'-'+date[6:8] # Change to YYYY-MM-DD format.
         study_id = dd.split('_')[1]
         visit_id = dd.split('_')[2].split('/')[0]
+        if replace_visit_prefix:
+            # Change H02 -> V02; B00 -> V00, V11 -> V01 etc.
+            visit_id = visit_id.replace(visit_id[0:2], "V0")
 
 #        print dd, date, study_id, visit_id
 
@@ -42,7 +45,7 @@ def visitIdReport(in_dir, out_path, ignore_symlinks=False):
                 report_df[visit_id] = ''
                 report_df.fillna('', inplace=True)
 
-        # Add data to cell.
+            # Add data to cell.
             if (report_df.loc[study_id, visit_id] == ''):
                 report_df.loc[study_id, visit_id] = date
                 break
@@ -57,7 +60,10 @@ def visitIdReport(in_dir, out_path, ignore_symlinks=False):
     report_df.fillna('', inplace=True)
 
     # Sort the Visit IDs based on the last digit.
-    cols_sorted = sorted(report_df.columns, key=lambda x:x[2])
+    try:
+        cols_sorted = sorted(report_df.columns, key=lambda x:int(x[2]+x[1]))
+    except ValueError:
+        cols_sorted = sorted(report_df.columns, key=lambda x:int(x[2]))
     report_df = report_df[cols_sorted]
 
     # Sort the study IDs.
@@ -84,6 +90,7 @@ if (__name__ == '__main__'):
 
     # Define keyword argument.
     parser.add_argument("-i", "--ignore_symlinks", help="Do not report on symbolic links. Still raises a warning.", action="store_true")
+    parser.add_argument("-v", "--replace_visit_prefix", help="If different visit codes have different letters or first digits (e.g. for CND study, use B## for brain, H## for heart, and C## for combined, or V01, V11, V21 for repeated V#1 scans), treat all letters and first digits as the same.", action="store_true")
     
     # Print help if no args input.
     if (len(sys.argv) == 1):
@@ -94,4 +101,4 @@ if (__name__ == '__main__'):
     args = parser.parse_args()
 
     # Do stuff.
-    visitIdReport(in_dir=args.in_dir, out_path=args.out_path, ignore_symlinks=args.ignore_symlinks)
+    visitIdReport(in_dir=args.in_dir, out_path=args.out_path, ignore_symlinks=args.ignore_symlinks, replace_visit_prefix=args.replace_visit_prefix)
