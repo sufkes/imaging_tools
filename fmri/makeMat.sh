@@ -21,11 +21,12 @@ columns="$2"
 motion_thresh="$3"
 quant_or_cat="$4"
 out_prefix="$5"
+out_name="$out_prefix"_"$motion_thresh"
 
 # Generate the .mat file.
 tmpfile=$(mktemp)
 cat "$data_csv" | grep "$motion_thresh" | cut -d "," -f "$columns" | tr "," '\t' > "$tmpfile"
-Text2Vest "$tmpfile" "$out_prefix".mat
+Text2Vest "$tmpfile" "$out_name".mat
 rm -f "$tmpfile"
 
 # Generate the .con file.
@@ -33,10 +34,10 @@ tmpfile=$(mktemp)
 if [ "$quant_or_cat" == "c" ]
 then
     echo -e "1 -1\n-1 1" > "$tmpfile"
-    Text2Vest "$tmpfile" "$out_prefix".con
+    Text2Vest "$tmpfile" "$out_name".con
 elif [ "$quant_or_cat" == "q" ]
 then
     echo -e "1\n-1" > "$tmpfile"
-    Text2Vest "$tmpfile" "$out_prefix".con
+    Text2Vest "$tmpfile" "$out_name".con
 fi
 rm -f "$tmpfile"

@@ -97,5 +97,4 @@ do
     rm "$out_path".nii.gz
 done
 
-
-
+echo "Run combineAtlasLabels.sh to combine results in a single CSV file."
