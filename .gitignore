@@ -5,6 +5,8 @@
 # Windows
 Thumbs.db
 
+# Linux
+.nfs*
 
 ## Editor trash
 # Emacs
