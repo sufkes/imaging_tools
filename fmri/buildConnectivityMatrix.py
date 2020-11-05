@@ -154,15 +154,15 @@ def buildConnectivityMatrix(bold_path, mask_path, mask_thres=0.0, corr_dist_min=
     #new_mask_nii = nib.Nifti1Image(new_mask, mask_nii.affine, mask_nii.header) # create NIFTI image with the new data, old header, and old affine.
     new_bold_nii = nib.Nifti1Image(new_bold, bold_nii.affine, bold_nii.header) # create NIFTI image with the new data, old header, and old affine.    
     
-    # Test saving a modified NIFTI file.
-    #new_mask_path = os.path.join(os.path.dirname(mask_path), "modified-"+os.path.basename(mask_path))
-    #print("Saving to", new_mask_path)
-    #nib.save(new_mask_nii, new_mask_path)
-
+    ## Test saving a modified NIFTI file.
     new_bold_path = os.path.join(os.path.dirname(bold_path), "modified-"+os.path.basename(bold_path))
-    print("Saving to", new_bold_path)
+    print "Saving test BOLD image to:", new_bold_path
     nib.save(new_bold_nii, new_bold_path)
-    
+
+    ## Save the correlation matrix.
+    corr_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+".npy")
+    print "Saving correlation matrix to:", corr_path
+    np.save(corr_path, corr)
     
 
 
