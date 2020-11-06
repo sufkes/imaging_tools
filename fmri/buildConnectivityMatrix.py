@@ -240,19 +240,17 @@ def buildConnectivityMatrix(bold_path, mask_path, mask_thres=0.0, corr_dist_min=
         
     ## Test mapping with the BOLD data. Here I want to check that I can get from the list of flattened, masked voxels back to the image space. I test on the bold image.
     # Reconstruct the bold series from the masked image.
-
     # Old way (works):
     #new_bold_flat = np.zeros(bold_flat.shape)
     #new_bold_flat[nonzero_bold_and_in_mask] = bold_mask # add the BOLD voxels that were included in the mask
     #new_bold = new_bold_flat.reshape(bold.shape)
-
     # New way:
-    new_bold = flatMaskedToImageSpace(bold_mask, nonzero_bold_and_in_mask, bold.shape[:3], measure_dim=1) # Here, the "measure" is a intensity time series at a single voxel, which is a 1D vector.
-    new_bold_nii = nib.Nifti1Image(new_bold, bold_nii.affine, bold_nii.header) # create NIFTI image with the new data, old header, and old affine.
+    #new_bold = flatMaskedToImageSpace(bold_mask, nonzero_bold_and_in_mask, bold.shape[:3], measure_dim=1) # Here, the "measure" is a intensity time series at a single voxel, which is a 1D vector.
+    #new_bold_nii = nib.Nifti1Image(new_bold, bold_nii.affine, bold_nii.header) # create NIFTI image with the new data, old header, and old affine.
     
-    new_bold_path = os.path.join(os.path.dirname(bold_path), "modified-"+os.path.basename(bold_path))
-    print "Saving test BOLD image to:", new_bold_path
-    nib.save(new_bold_nii, new_bold_path)
+    #new_bold_path = os.path.join(os.path.dirname(bold_path), "modified-"+os.path.basename(bold_path))
+    #print "Saving test BOLD image to:", new_bold_path
+    #nib.save(new_bold_nii, new_bold_path)
 
     # Node degree
     node_degree_image_space = flatMaskedToImageSpace(node_degree, nonzero_bold_and_in_mask, bold.shape[:3])
@@ -268,11 +266,16 @@ def buildConnectivityMatrix(bold_path, mask_path, mask_thres=0.0, corr_dist_min=
     print "Saving FCS to:", fcs_path
     nib.save(fcs_nii, fcs_path)
     
-    ## Save the correlation matrix.
+    ## Correlation matrix.
     corr_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_corr.npy")
     print "Saving correlation matrix to:", corr_path
     np.save(corr_path, corr)
 
+    # Binary adjacency matrix
+    binary_adjacency_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_badj.npy")
+    print "Saving binary adjacency matrix to:", binary_adjacency_path
+    np.save(binary_adjacency_path, binary_adjacency)
+    
 if (__name__ == '__main__'):
     # Create argument parser
     description = """Generate a voxel-wise functional connectivity matrix from fMRI data."""
