@@ -186,10 +186,8 @@ def buildConnectivityMatrix(bold_path, mask_path, mask_thres=0.0, corr_dist_min=
     percentile = ( 1 - network_density * float(num_nodes-1)/float(num_nodes) ) * 100.0
     correlation_thres = np.percentile(corr, percentile)
 
-    print "DEBUG BEFORE:", corr.mean()
     weighted_adjacency= corr.copy()
     weighted_adjacency[corr < correlation_thres] = 0 # correlations below threshold are not considered connections; weights of connection are set to the correlation coefficient magnitude.
-    print "DEBUG AFTER:", corr.mean()
     
     binary_adjacency = np.zeros(corr.shape, dtype=np.float64)
     print "Warning: Saving adjacency matrix for binary network as 64-bit float for compatibilty with BCT. Saving as (int32/bool?) would save space."
@@ -270,21 +268,21 @@ def buildConnectivityMatrix(bold_path, mask_path, mask_thres=0.0, corr_dist_min=
     # Node degree
     node_degree_image_space = flatMaskedToImageSpace(node_degree, nonzero_bold_and_in_mask, bold.shape[:3])
     node_degree_nii = nib.Nifti1Image(node_degree_image_space, bold_nii.affine, bold_nii.header)
-    node_degree_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_bdeg.nii")
+    node_degree_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_bdeg.nii.gz")
     print "Saving node degree to:", node_degree_path
     nib.save(node_degree_nii, node_degree_path)
 
     # Weighted node degree
     node_degree_weighted_image_space = flatMaskedToImageSpace(node_degree_weighted, nonzero_bold_and_in_mask, bold.shape[:3])
     node_degree_weighted_nii = nib.Nifti1Image(node_degree_weighted_image_space, bold_nii.affine, bold_nii.header)
-    node_degree_weighted_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_wdeg.nii")
+    node_degree_weighted_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_wdeg.nii.gz")
     print "Saving node degree to:", node_degree_weighted_path
     nib.save(node_degree_weighted_nii, node_degree_weighted_path)
     
     # FCS
     fcs_image_space = flatMaskedToImageSpace(fcs, nonzero_bold_and_in_mask, bold.shape[:3])
     fcs_nii = nib.Nifti1Image(fcs_image_space, bold_nii.affine, bold_nii.header)
-    fcs_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_fcs.nii")
+    fcs_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_fcs.nii.gz")
     print "Saving FCS to:", fcs_path
     nib.save(fcs_nii, fcs_path)
     
