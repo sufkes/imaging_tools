@@ -191,7 +191,7 @@ def buildConnectivityMatrix(bold_path, mask_path, out_dir=None, mask_thres=0.0, 
     
     binary_adjacency = np.zeros(corr.shape, dtype=np.float64)
     print "Warning: Saving adjacency matrix for binary network as 64-bit float for compatibilty with BCT. Saving as (int32/bool?) would save space."
-    binary_adjacency[corr > correlation_thres] = 1
+    binary_adjacency[corr >= correlation_thres] = 1
     print "Thresholding correlation matrix to create an adjacency matrix for a network with density "+str(network_density)
     print "Actual network density:", float(binary_adjacency.sum())/ ( float(num_nodes)*float(num_nodes-1) )
     print "Corresponding correlation coefficient (either r or z depending on options): "+str(correlation_thres)
