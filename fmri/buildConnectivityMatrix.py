@@ -11,7 +11,7 @@ warnings.filterwarnings("default", category=UserWarning)
 
 import numpy as np
 
-def buildConnectivityMatrix(bold_path, mask_path, mask_thres=0.0, corr_dist_min=10.0, fisher_r_to_z=False, no_absolute=False, network_density=0.05, debug=False):
+def buildConnectivityMatrix(bold_path, mask_path, out_dir=None, mask_thres=0.0, corr_dist_min=10.0, fisher_r_to_z=False, no_absolute=False, network_density=0.05, debug=False):
     
     bold_nii = nib.load(bold_path)
     mask_nii = nib.load(mask_path)
@@ -265,39 +265,42 @@ def buildConnectivityMatrix(bold_path, mask_path, mask_thres=0.0, corr_dist_min=
     #print "Saving test BOLD image to:", new_bold_path
     #nib.save(new_bold_nii, new_bold_path)
 
+    if (out_dir is None):
+        out_dir = os.path.dirname(bold_path) # save it wherever the BOLD image is
+    
     # Node degree
     node_degree_image_space = flatMaskedToImageSpace(node_degree, nonzero_bold_and_in_mask, bold.shape[:3])
     node_degree_nii = nib.Nifti1Image(node_degree_image_space, bold_nii.affine, bold_nii.header)
-    node_degree_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_bdeg.nii.gz")
+    node_degree_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_bdeg.nii.gz")
     print "Saving node degree to:", node_degree_path
     nib.save(node_degree_nii, node_degree_path)
 
     # Weighted node degree
     node_degree_weighted_image_space = flatMaskedToImageSpace(node_degree_weighted, nonzero_bold_and_in_mask, bold.shape[:3])
     node_degree_weighted_nii = nib.Nifti1Image(node_degree_weighted_image_space, bold_nii.affine, bold_nii.header)
-    node_degree_weighted_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_wdeg.nii.gz")
-    print "Saving node degree to:", node_degree_weighted_path
+    node_degree_weighted_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_wdeg.nii.gz")
+    print "Saving weighted node degree to:", node_degree_weighted_path
     nib.save(node_degree_weighted_nii, node_degree_weighted_path)
     
     # FCS
     fcs_image_space = flatMaskedToImageSpace(fcs, nonzero_bold_and_in_mask, bold.shape[:3])
     fcs_nii = nib.Nifti1Image(fcs_image_space, bold_nii.affine, bold_nii.header)
-    fcs_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_fcs.nii.gz")
+    fcs_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_fcs.nii.gz")
     print "Saving FCS to:", fcs_path
     nib.save(fcs_nii, fcs_path)
     
     ## Correlation matrix.
-    corr_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_corr.npy")
+    corr_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_corr.npy")
     print "Saving correlation matrix to:", corr_path
     np.save(corr_path, corr)
 
     # Weighted adjacency matrix
-    weighted_adjacency_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_wadj.npy")
+    weighted_adjacency_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_wadj.npy")
     print "Saving weighted adjacency matrix to:", weighted_adjacency_path
     np.save(weighted_adjacency_path, weighted_adjacency)
     
     # Binary adjacency matrix
-    binary_adjacency_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_badj.npy")
+    binary_adjacency_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_badj.npy")
     print "Saving binary adjacency matrix to:", binary_adjacency_path
     np.save(binary_adjacency_path, binary_adjacency)
     
@@ -312,11 +315,14 @@ if (__name__ == '__main__'):
     parser.add_argument("mask_path", type=str, help="path to mask in NIFTI format.")
     
     # Define optional arguments.
+    parser.add_argument("-o", "--out_dir", type=str, help="directory to save results to. Default: same as BOLD directory.")
+
     parser.add_argument("-t", "--mask_thres", type=float, help="include only voxels for which the mask has value greater than MASK_THRES. Default: 0", default=0.0)
     parser.add_argument("--corr_dist_min", type=float, help="set the correlation between pairs of voxels to zero if their centroids are within CORR_DIST_MIN of each other; enter in mm. Default=10", default=10.0)
     parser.add_argument("-d","--network_density", type=float, help="density of network for binary network. Density = (number of connections)/(number of potential connections). Default: 0.05", default=0.05)
     parser.add_argument("-z", "--fisher_r_to_z", action="store_true", help="apply Fisher's r-to-z transformation.")
     parser.add_argument("-a", "--no_absolute", action="store_true", help="do not take the absolute values of the correlations.")
+
     parser.add_argument("--debug", action="store_true", help="debug mode - print lots of stuff.")
 
     # Print help if no args input.
