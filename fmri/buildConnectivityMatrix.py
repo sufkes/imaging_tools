@@ -11,7 +11,7 @@ warnings.filterwarnings("default", category=UserWarning)
 
 import numpy as np
 
-def buildConnectivityMatrix(bold_path, mask_path, mask_thres=0.0, corr_dist_min=10.0, no_fisher_r_to_z=False, no_absolute=False, network_density=0.05, debug=False):
+def buildConnectivityMatrix(bold_path, mask_path, mask_thres=0.0, corr_dist_min=10.0, fisher_r_to_z=False, no_absolute=False, network_density=0.05, debug=False):
     
     bold_nii = nib.load(bold_path)
     mask_nii = nib.load(mask_path)
@@ -141,7 +141,7 @@ def buildConnectivityMatrix(bold_path, mask_path, mask_thres=0.0, corr_dist_min=
         print
 
     ## Apply Fisher's r-to-z transformation.
-    if not no_fisher_r_to_z:
+    if fisher_r_to_z:
         corr = np.arctanh(corr)
         if debug:
             print "Correlation matrix after Fisher's r-to-z transformation:"
@@ -185,6 +185,11 @@ def buildConnectivityMatrix(bold_path, mask_path, mask_thres=0.0, corr_dist_min=
 
     percentile = ( 1 - network_density * float(num_nodes-1)/float(num_nodes) ) * 100.0
     correlation_thres = np.percentile(corr, percentile)
+
+    print "DEBUG BEFORE:", corr.mean()
+    weighted_adjacency= corr.copy()
+    weighted_adjacency[corr < correlation_thres] = 0 # correlations below threshold are not considered connections; weights of connection are set to the correlation coefficient magnitude.
+    print "DEBUG AFTER:", corr.mean()
     
     binary_adjacency = np.zeros(corr.shape, dtype=np.float64)
     print "Warning: Saving adjacency matrix for binary network as 64-bit float for compatibilty with BCT. Saving as (int32/bool?) would save space."
@@ -204,7 +209,17 @@ def buildConnectivityMatrix(bold_path, mask_path, mask_thres=0.0, corr_dist_min=
         print node_degree
         print node_degree.shape
         print
-    
+
+    # Calculate the node degree to compare with BNA
+    node_degree_weighted = weighted_adjacency.sum(axis=1)
+    if debug:
+        print "Weighted node degree matrix:"
+        print node_degree_weighted
+        print node_degree_weighted.shape
+        print
+
+
+        
     #### Calculate measures from the correlation matrix.
     ## Calcuate the functional connectivity strength (FCS) as in Cao et al. (2017):
     # "Specifically, for each voxel, the FCS was calculated as the average of the correlations between this voxel and all other voxels in the brain."
@@ -255,9 +270,16 @@ def buildConnectivityMatrix(bold_path, mask_path, mask_thres=0.0, corr_dist_min=
     # Node degree
     node_degree_image_space = flatMaskedToImageSpace(node_degree, nonzero_bold_and_in_mask, bold.shape[:3])
     node_degree_nii = nib.Nifti1Image(node_degree_image_space, bold_nii.affine, bold_nii.header)
-    node_degree_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_deg.nii")
+    node_degree_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_bdeg.nii")
     print "Saving node degree to:", node_degree_path
     nib.save(node_degree_nii, node_degree_path)
+
+    # Weighted node degree
+    node_degree_weighted_image_space = flatMaskedToImageSpace(node_degree_weighted, nonzero_bold_and_in_mask, bold.shape[:3])
+    node_degree_weighted_nii = nib.Nifti1Image(node_degree_weighted_image_space, bold_nii.affine, bold_nii.header)
+    node_degree_weighted_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_wdeg.nii")
+    print "Saving node degree to:", node_degree_weighted_path
+    nib.save(node_degree_weighted_nii, node_degree_weighted_path)
     
     # FCS
     fcs_image_space = flatMaskedToImageSpace(fcs, nonzero_bold_and_in_mask, bold.shape[:3])
@@ -271,6 +293,11 @@ def buildConnectivityMatrix(bold_path, mask_path, mask_thres=0.0, corr_dist_min=
     print "Saving correlation matrix to:", corr_path
     np.save(corr_path, corr)
 
+    # Weighted adjacency matrix
+    weighted_adjacency_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_wadj.npy")
+    print "Saving weighted adjacency matrix to:", weighted_adjacency_path
+    np.save(weighted_adjacency_path, weighted_adjacency)
+    
     # Binary adjacency matrix
     binary_adjacency_path = os.path.join(os.path.dirname(bold_path), os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_badj.npy")
     print "Saving binary adjacency matrix to:", binary_adjacency_path
@@ -290,7 +317,7 @@ if (__name__ == '__main__'):
     parser.add_argument("-t", "--mask_thres", type=float, help="include only voxels for which the mask has value greater than MASK_THRES. Default: 0", default=0.0)
     parser.add_argument("--corr_dist_min", type=float, help="set the correlation between pairs of voxels to zero if their centroids are within CORR_DIST_MIN of each other; enter in mm. Default=10", default=10.0)
     parser.add_argument("-d","--network_density", type=float, help="density of network for binary network. Density = (number of connections)/(number of potential connections). Default: 0.05", default=0.05)
-    parser.add_argument("-z", "--no_fisher_r_to_z", action="store_true", help="do not apply Fisher's r-to-z transformation.")
+    parser.add_argument("-z", "--fisher_r_to_z", action="store_true", help="apply Fisher's r-to-z transformation.")
     parser.add_argument("-a", "--no_absolute", action="store_true", help="do not take the absolute values of the correlations.")
     parser.add_argument("--debug", action="store_true", help="debug mode - print lots of stuff.")
 
@@ -304,4 +331,3 @@ if (__name__ == '__main__'):
 
     # Do stuff.
     buildConnectivityMatrix(**vars(args))
-#    buildConnectivityMatrix(bold_path=args.bold_path, mask_path=args.mask_path, mask_thres=args.mask_thres, corr_dist_min=args.corr_dist_min, no_fisher_r_to_z=args.no_fisher_r_to_z, no_absolute=args.no_absolute)
