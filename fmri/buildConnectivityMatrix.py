@@ -11,12 +11,41 @@ warnings.filterwarnings("default", category=UserWarning)
 
 import numpy as np
 
-def buildConnectivityMatrix(bold_path, mask_path, out_dir=None, mask_thres=0.0, corr_dist_min=10.0, fisher_r_to_z=False, no_absolute=False, network_density=0.05, debug=False):
+def flatMaskedToImageSpace(flat_masked_array, flat_mask, spatial_image_shape, measure_dim=0):
+    if (measure_dim == 0): # if the measure being mapped back to the image space is a scalar (i.e. a single number)
+        flat_image_shape = (spatial_image_shape[0]*spatial_image_shape[1]*spatial_image_shape[2], )
+        final_image_shape = spatial_image_shape
+    elif (measure_dim == 1): # if the measure being mapped back to the image space is a 1D vector.
+        flat_image_shape = (spatial_image_shape[0]*spatial_image_shape[1]*spatial_image_shape[2], flat_masked_array.shape[1])
+        final_image_shape = spatial_image_shape + (flat_masked_array.shape[1],)
+    else:
+        raise Exception("Cannot map measure back to image space - measure must be 0-dimensional (scalar) or 1-dimensional (vector).")
+
+    # Initialize the flat matrix which has a row for every voxel in the image space.
+    measure_image_space = np.zeros((flat_image_shape), dtype=np.float32)
+        
+    # Populate the voxels in the flat array with the values taken from the flat, masked array.
+    #print measure_image_space.shape, flat_mask.shape, flat_masked_array.shape
+    
+    measure_image_space[flat_mask] = flat_masked_array
+    
+    # Reshape to the original image space.
+    measure_image_space = measure_image_space.reshape(final_image_shape)
+
+    return measure_image_space
+
+def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=0.0, corr_dist_min=10.0, fisher_r_to_z=False, no_absolute=False, network_density=0.05, debug=False, voxel_map_only=False, **kwargs):
+
+    if (out_dir is None):
+        out_dir = os.path.dirname(bold_path) # save it wherever the BOLD image is
     
     bold_nii = nib.load(bold_path)
     mask_nii = nib.load(mask_path)
     bold = np.asarray(bold_nii.get_fdata()).astype(np.float32)
-    mask = np.asarray(mask_nii.get_fdata()).astype(np.float32)
+    if (mask_path is None):
+        mask = np.ones(bold.shape, dtype=np.float32)
+    else:
+        mask = np.asarray(mask_nii.get_fdata()).astype(np.float32)
 
     #print("BOLD:", bold.shape, bold.dtype)
     #print("Mask:", mask.shape, mask.dtype)
@@ -91,6 +120,14 @@ def buildConnectivityMatrix(bold_path, mask_path, out_dir=None, mask_thres=0.0, 
     #print (nonzero_bold_and_in_mask.shape)
     print "Number of nonzero BOLD voxels in thresholded mask:", np.count_nonzero(nonzero_bold_and_in_mask)
 
+    # Special option to fix a problem.
+    if voxel_map_only:
+        # "Voxel" map, which is required to map from the voxels in the map back to the voxels in the image. Depends on the BOLD image, mask, and mask threshold.
+        voxel_map_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_voxelmap.npy")
+        print "Saving voxel map to:", voxel_map_path
+        np.save(voxel_map_path, nonzero_bold_and_in_mask)
+        return
+    
     #bold_mask = bold_flat[(mask_flat>mask_thres), :] # flattened; only including mask voxels.
     bold_mask = bold_flat[nonzero_bold_and_in_mask, :] # flattened; only include BOLD voxels that are nonzero and inside the thresholded mask.
     coords_mask = coords_flat[nonzero_bold_and_in_mask, :]
@@ -215,8 +252,6 @@ def buildConnectivityMatrix(bold_path, mask_path, out_dir=None, mask_thres=0.0, 
         print node_degree_weighted
         print node_degree_weighted.shape
         print
-
-
         
     #### Calculate measures from the correlation matrix.
     ## Calcuate the functional connectivity strength (FCS) as in Cao et al. (2017):
@@ -229,27 +264,6 @@ def buildConnectivityMatrix(bold_path, mask_path, out_dir=None, mask_thres=0.0, 
         print
 
     #### Map measures masked, flatten voxel arrays back to image space.
-    def flatMaskedToImageSpace(flat_masked_array, flat_mask, spatial_image_shape, measure_dim=0):
-        if (measure_dim == 0): # if the measure being mapped back to the image space is a scalar (i.e. a single number)
-            flat_image_shape = (spatial_image_shape[0]*spatial_image_shape[1]*spatial_image_shape[2], )
-            final_image_shape = spatial_image_shape
-        elif (measure_dim == 1): # if the measure being mapped back to the image space is a 1D vector.
-            flat_image_shape = (spatial_image_shape[0]*spatial_image_shape[1]*spatial_image_shape[2], flat_masked_array.shape[1])
-            final_image_shape = spatial_image_shape + (flat_masked_array.shape[1],)
-        else:
-            raise Exception("Cannot map measure back to image space - measure must be 0-dimensional (scalar) or 1-dimensional (vector).")
-
-        # Initialize the flat matrix which has a row for every voxel in the image space.
-        measure_image_space = np.zeros((flat_image_shape), dtype=np.float32)
-        
-        # Populate the voxels in the flat array with the values taken from the flat, masked array.
-        #print measure_image_space.shape, flat_mask.shape, flat_masked_array.shape
-        measure_image_space[flat_mask] = flat_masked_array
-
-        # Reshape to the original image space.
-        measure_image_space = measure_image_space.reshape(final_image_shape)
-
-        return measure_image_space
         
     ## Test mapping with the BOLD data. Here I want to check that I can get from the list of flattened, masked voxels back to the image space. I test on the bold image.
     # Reconstruct the bold series from the masked image.
@@ -264,11 +278,11 @@ def buildConnectivityMatrix(bold_path, mask_path, out_dir=None, mask_thres=0.0, 
     #new_bold_path = os.path.join(os.path.dirname(bold_path), "modified-"+os.path.basename(bold_path))
     #print "Saving test BOLD image to:", new_bold_path
     #nib.save(new_bold_nii, new_bold_path)
-
-    if (out_dir is None):
-        out_dir = os.path.dirname(bold_path) # save it wherever the BOLD image is
     
     # Node degree
+    # save flat, masked numpy array for a  test.
+    node_degree_npy_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_bdeg.npy")
+    np.save(node_degree_npy_path, node_degree)    
     node_degree_image_space = flatMaskedToImageSpace(node_degree, nonzero_bold_and_in_mask, bold.shape[:3])
     node_degree_nii = nib.Nifti1Image(node_degree_image_space, bold_nii.affine, bold_nii.header)
     node_degree_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_bdeg.nii.gz")
@@ -288,6 +302,11 @@ def buildConnectivityMatrix(bold_path, mask_path, out_dir=None, mask_thres=0.0, 
     fcs_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_fcs.nii.gz")
     print "Saving FCS to:", fcs_path
     nib.save(fcs_nii, fcs_path)
+
+    # "Voxel" map, which is required to map from the voxels in the map back to the voxels in the image. Depends on the BOLD image, mask, and mask threshold.
+    voxel_map_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_voxelmap.npy")
+    print "Saving voxel map to:", voxel_map_path
+    np.save(voxel_map_path, nonzero_bold_and_in_mask)
     
     ## Correlation matrix.
     corr_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_corr.npy")
@@ -303,6 +322,24 @@ def buildConnectivityMatrix(bold_path, mask_path, out_dir=None, mask_thres=0.0, 
     binary_adjacency_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_badj.npy")
     print "Saving binary adjacency matrix to:", binary_adjacency_path
     np.save(binary_adjacency_path, binary_adjacency)
+
+def mapMeasureToVoxels(bold_path, voxel_map_path, measure_path, out_dir):
+    bold_nii = nib.load(bold_path)
+    bold = np.asarray(bold_nii.get_fdata()).astype(np.float32)
+
+    voxel_map = np.load(voxel_map_path)
+    measure = np.load(measure_path)
+
+    if (out_dir is None):
+        out_dir = os.path.dirname(bold_path) # save it wherever the BOLD image is
+    
+    measure_image_space = flatMaskedToImageSpace(measure, voxel_map, bold.shape[:3])
+    measure_nii = nib.Nifti1Image(measure_image_space, bold_nii.affine, bold_nii.header)
+    measure_path = os.path.join(out_dir, os.path.basename(measure_path).rstrip(".npy")+".nii.gz")
+    if os.path.exists(measure_path):
+        raise Exception("File exists; not overwriting: "+str(measure_path))
+    print "Saving measure to:", measure_path
+    nib.save(measure_nii, measure_path)    
     
 if (__name__ == '__main__'):
     # Create argument parser
@@ -312,7 +349,7 @@ if (__name__ == '__main__'):
     
     # Define positional arguments.
     parser.add_argument("bold_path", type=str, help="path to BOLD time series in NIFTI format.")
-    parser.add_argument("mask_path", type=str, help="path to mask in NIFTI format.")
+    parser.add_argument("mask_path", type=str, help="path to mask in NIFTI format. If none provided, all nonzero voxels in the BOLD image will be used as nodes.")
     
     # Define optional arguments.
     parser.add_argument("-o", "--out_dir", type=str, help="directory to save results to. Default: same as BOLD directory.")
@@ -322,9 +359,12 @@ if (__name__ == '__main__'):
     parser.add_argument("-d","--network_density", type=float, help="density of network for binary network. Density = (number of connections)/(number of potential connections). Default: 0.05", default=0.05)
     parser.add_argument("-z", "--fisher_r_to_z", action="store_true", help="apply Fisher's r-to-z transformation.")
     parser.add_argument("-a", "--no_absolute", action="store_true", help="do not take the absolute values of the correlations.")
-
     parser.add_argument("--debug", action="store_true", help="debug mode - print lots of stuff.")
 
+    parser.add_argument("--voxel_map_only", action="store_true", help="special option")
+    
+    parser.add_argument("-v", "--measure_to_voxels", type=str, help="map a measure back to image space. Must include paths to the voxel map which was used when the connectivity matrix was constructed, and the measure (e.g. node degree), stored as NumPy arrays. The first axis of the measure array must have size equal to the number of nodes.", nargs=2, metavar=("VOXEL_MAP", "MEASURE"))    
+    
     # Print help if no args input.
     if (len(sys.argv) == 1):
         parser.print_help()
@@ -333,5 +373,9 @@ if (__name__ == '__main__'):
     # Parse arguments.
     args = parser.parse_args()
 
-    # Do stuff.
-    buildConnectivityMatrix(**vars(args))
+    if args.measure_to_voxels:
+        # Map measure (e.g. node degree) back to image space).
+        mapMeasureToVoxels(bold_path=args.bold_path, voxel_map_path=args.measure_to_voxels[0], measure_path=args.measure_to_voxels[1], out_dir=args.out_dir)
+    else:
+        # Build connectivity matrix.
+        buildConnectivityMatrix(**vars(args))
