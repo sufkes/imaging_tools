@@ -11,14 +11,15 @@ def plotOverlays(target_path, overlay_paths, out_dir, display_mode, num_cuts, al
         num_cuts = None
     
     for overlay_path in overlay_paths:
-        display = plt.plot_img(target_path, display_mode=display_mode, cmap='gray', cut_coords=num_cuts)
-        #display = plt.plot_img(target_path, cmap='gray', display_mode='z', cut_coords=10)
-        display.add_overlay(overlay_path, cmap='YlOrRd_r', alpha=alpha, colorbar=True, threshold=1.0)
+        for alpha in [0.00, 0.50, 1.00]:
+            display = plt.plot_img(target_path, display_mode=display_mode, cmap='gray', cut_coords=num_cuts)
+            #display = plt.plot_img(target_path, cmap='gray', display_mode='z', cut_coords=10)
+            display.add_overlay(overlay_path, cmap='YlOrRd_r', alpha=alpha, colorbar=True, threshold=1.0)
 
-        out_name = os.path.basename(overlay_path).split('.nii')[0]+"_on_main.png"
-        out_path = os.path.join(out_dir, out_name)
-        display.savefig(out_path)
-        display.close()
+            out_name = os.path.basename(overlay_path).split('.nii')[0]+"_alpha_"+"{:1.2f}".format(alpha)+".png"
+            out_path = os.path.join(out_dir, out_name)
+            display.savefig(out_path)
+            display.close()
 
 
 if __name__ == "__main__":

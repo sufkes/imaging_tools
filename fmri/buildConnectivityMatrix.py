@@ -189,7 +189,7 @@ def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=
     ## Take the absolute values of the correlations.
     # From Wang 2015 - GRETNA:
     # """Previous R-fMRI studies have found that certain functional systems are anti-correlated (i.e., have a negative correlation) in their spontaneous brain activity (Greicius et al., 2003; Fox et al., 2005). However, negative correlations may also be introduced by global signal removal, a preprocessing step that is currently controversial (Fox et al., 2009; Murphy et al., 2009; Weissenbacher et al., 2009; Scholvinck et al., 2010). For network topology, negative correlations may have detrimental effects on TRT reliability (Wang et al., 2011) and exhibit organizations different from positive correlations (Schwarz and McGonigle, 2011). Accordingly, GRETNA provides options for researchers to determine the network connectivity members, based on which subsequent graph analyses are implemented: positive network (composed of only positive correlations), negative network (composed of only absolute negative correlations) or full network (composed of both positive correlations and the absolute values of the negative correlations)."""
-    if not no_absolute:
+    if (not no_absolute):
         corr = np.abs(corr)
         if debug:
             print "Correlation matrix after taking absolute values:"
@@ -281,13 +281,13 @@ def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=
     
     # Node degree
     # save flat, masked numpy array for a  test.
-    node_degree_npy_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_bdeg.npy")
-    np.save(node_degree_npy_path, node_degree)    
-    node_degree_image_space = flatMaskedToImageSpace(node_degree, nonzero_bold_and_in_mask, bold.shape[:3])
-    node_degree_nii = nib.Nifti1Image(node_degree_image_space, bold_nii.affine, bold_nii.header)
-    node_degree_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_bdeg.nii.gz")
-    print "Saving node degree to:", node_degree_path
-    nib.save(node_degree_nii, node_degree_path)
+#    node_degree_npy_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_bdeg.npy")
+#    np.save(node_degree_npy_path, node_degree)    
+#    node_degree_image_space = flatMaskedToImageSpace(node_degree, nonzero_bold_and_in_mask, bold.shape[:3])
+#    node_degree_nii = nib.Nifti1Image(node_degree_image_space, bold_nii.affine, bold_nii.header)
+#    node_degree_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_bdeg.nii.gz")
+#    print "Saving node degree to:", node_degree_path
+#    nib.save(node_degree_nii, node_degree_path)
 
     # Weighted node degree
     node_degree_weighted_image_space = flatMaskedToImageSpace(node_degree_weighted, nonzero_bold_and_in_mask, bold.shape[:3])
