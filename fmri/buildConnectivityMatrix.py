@@ -341,8 +341,9 @@ def mapMeasureToVoxels(bold_path, voxel_map_path, measure_path, out_dir):
         message = "File exists; not overwriting: "+str(measure_path)
         #raise Exception(message)
         warnings.warn(message)
-    print "Saving measure to:", measure_path
-    nib.save(measure_nii, measure_path)    
+    else:
+        print "Saving measure to:", measure_path
+        nib.save(measure_nii, measure_path)    
     
 if (__name__ == '__main__'):
     # Create argument parser
