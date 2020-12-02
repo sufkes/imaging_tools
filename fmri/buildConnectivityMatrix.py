@@ -19,7 +19,8 @@ def flatMaskedToImageSpace(flat_masked_array, flat_mask, spatial_image_shape, me
         flat_image_shape = (spatial_image_shape[0]*spatial_image_shape[1]*spatial_image_shape[2], flat_masked_array.shape[1])
         final_image_shape = spatial_image_shape + (flat_masked_array.shape[1],)
     else:
-        raise Exception("Cannot map measure back to image space - measure must be 0-dimensional (scalar) or 1-dimensional (vector).")
+        message = "Cannot map measure back to image space - measure must be 0-dimensional (scalar) or 1-dimensional (vector)."
+        raise Exception(message)
 
     # Initialize the flat matrix which has a row for every voxel in the image space.
     measure_image_space = np.zeros((flat_image_shape), dtype=np.float32)
@@ -337,7 +338,9 @@ def mapMeasureToVoxels(bold_path, voxel_map_path, measure_path, out_dir):
     measure_nii = nib.Nifti1Image(measure_image_space, bold_nii.affine, bold_nii.header)
     measure_path = os.path.join(out_dir, os.path.basename(measure_path).rstrip(".npy")+".nii.gz")
     if os.path.exists(measure_path):
-        raise Exception("File exists; not overwriting: "+str(measure_path))
+        message = "File exists; not overwriting: "+str(measure_path)
+        #raise Exception(message)
+        warnings.warn(message)
     print "Saving measure to:", measure_path
     nib.save(measure_nii, measure_path)    
     
