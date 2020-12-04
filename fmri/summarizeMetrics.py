@@ -102,7 +102,7 @@ def summarizeMetrics(metric_dir, roi_dir, mask_path, mask_thres, out_dir):
         ## NumPy array metrics
         # Find the metric NumPy array files. Some of these are voxel-wise, some are not.
         metric_paths_npy = glob.glob(subject_dir+"/*.npy")
-        pprint(metric_paths_npy)
+        #pprint(metric_paths_npy)
         
         # Exclude any npy files which are not in the list of metrics specified above.
         metrics_npy = []
@@ -114,7 +114,7 @@ def summarizeMetrics(metric_dir, roi_dir, mask_path, mask_thres, out_dir):
                     break
 
         metrics_npy.sort(key=lambda x: x.path)
-        pprint(metrics_npy)
+        #pprint(metrics_npy)
         
         for metric in metrics_npy:
             if (len(metric.arr.shape) > 0):
