@@ -84,7 +84,10 @@ def summarizeMetrics(metric_dir, roi_dir, mask_path, mask_thres, out_dir):
     volume_df = pd.DataFrame(index=[roi.name for roi in rois], columns=["num_voxels"]) # to store the volumes of the ROI/mask overlap.
     for roi in rois:
         volume_df.loc[roi.name, "num_voxels"] = len(roi.arr[(mask.arr>0.0) & (roi.arr>0.0)])
-    volume_df.to_csv(os.path.join(out_dir, "roi_mask_overlap_volumes.csv"))
+
+    out_name = os.path.basename(metric_dir) + "_roi_mask_overlap_volumes.csv"
+    out_path = os.path.join(out_dir, out_name)
+    volume_df.to_csv(out_path)
             
     
     # Add row for each subject.
