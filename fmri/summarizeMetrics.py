@@ -133,10 +133,10 @@ def summarizeMetrics(metric_dir, roi_dir, mask_path, mask_thres, out_dir):
                 df.loc[subject, col_mean] = metric.arr.mean()
                 df.loc[subject, col_median] = np.median(metric.arr)
                 df.loc[subject, col_std] = metric.arr.std(ddof=1)
-        else:
-            if not metric.name in df:
-                df[metric.name] = 0.0
-            df.loc[subject, metric.name] = metric.arr
+            else:
+                if not metric.name in df:
+                    df[metric.name] = 0.0
+                df.loc[subject, metric.name] = metric.arr
             
         ## NIFTI voxel-wise metrics
         # Find the metric NIFTI files.
