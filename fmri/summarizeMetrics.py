@@ -49,7 +49,7 @@ class Mask(object):
         #print arr.shape
         self.arr = arr
         
-def summarizeMetrics(metric_dir, roi_dir, mask_path, mask_thres, out_dir):    
+def summarizeMetrics(metric_dir, roi_dir, mask_path, mask_thres, out_dir, other_data):
     # Initialize the dataframe which will store all of the data.
     df = pd.DataFrame()
 
@@ -208,11 +208,19 @@ def summarizeMetrics(metric_dir, roi_dir, mask_path, mask_thres, out_dir):
                     test_ones_path = os.path.join(out_dir, "-".join(['ones', roi.name]) + ".nii.gz")
                     nib.save(test_ones_nii, test_ones_path)
                     sane = True
+
+    # Convert the index to a column of subject IDs.
+    df['subject'] = df.index
     
+    # If there is other data to merge, merge it.
+    if other_data:
+        df_other = pd.read_csv(other_data)
+        df = df_other.merge(df, how='right', on='subject')
+                    
     # Save the dataframe.
     out_name = os.path.basename(metric_dir) + "_data.csv"
     out_path = os.path.join(out_dir, out_name)
-    df.to_csv(out_path, index=True, encoding='utf-8')
+    df.to_csv(out_path, index=False, encoding='utf-8')
     return
     
 if (__name__ == '__main__'):
@@ -228,7 +236,8 @@ if (__name__ == '__main__'):
     # Define optional arguments.
     parser.add_argument("-o", "--out_dir", type=str, help="output directory. Default: current directory.", default=os.getcwd())
     parser.add_argument("--mask_thres", type=float, help="mask threshold -- only consider metric values within the portion of the mask whose values are above this threshold. By default, all positive values in the mask are included.", default=0)
-
+    parser.add_argument("-d", "--other_data", type=str, help="path to CSV file containing other data for the subjects, which will be merged with the output data from this script. By default, no additional data will be added. Column containing subject ID's must be named 'subject'.")
+    
     # Print help if no args input.
     if (len(sys.argv) == 1):
         parser.print_help()
@@ -239,5 +248,4 @@ if (__name__ == '__main__'):
 
     # Run the
     summarizeMetrics(**vars(args))
-
     
