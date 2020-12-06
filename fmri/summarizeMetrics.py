@@ -154,6 +154,26 @@ def summarizeMetrics(metric_dir, roi_dir, mask_path, mask_thres, out_dir):
         metrics_nifti.sort(key=lambda x: x.path)
 
         for metric in metrics_nifti:
+            # Get the mean and standard deviation over the whole grey matter mask. This will be redundant for most measures, whose GM-averaged values are calculated above from the Numpy arrays. This is not redundant for FCS, which does not have a numpy array version.
+            if (metric.name == 'fcs'):
+                col_prefix = metric.name + "_gm_"
+                col_mean = col_prefix+"_mean"
+                col_median = col_prefix+"_median"
+                col_std = col_prefix+"_std"
+                if not col_mean in df:
+                    df[col_mean] = 0.0
+                if not col_median in df:
+                    df[col_median] = 0.0
+                if not col_std in df:
+                    df[col_std] = 0.0
+
+                # Get the portion of the metric lying within the mask.
+                metric_in_mask = metric.arr[mask.arr > 0.0] # This is flat.
+
+                df.loc[subject, col_mean] = metric_in_mask.mean()
+                df.loc[subject, col_median] = np.median(metric_in_mask)
+                df.loc[subject, col_std] = metric_in_mask.std(ddof=1)
+                    
             for roi in rois:
                 col_prefix = metric.name + "_" + roi.name
                 col_mean = col_prefix+"_mean"
