@@ -154,8 +154,8 @@ def summarizeMetrics(metric_dir, roi_dir, mask_path, mask_thres, out_dir, other_
         metrics_nifti.sort(key=lambda x: x.path)
 
         for metric in metrics_nifti:
-            # Get the mean and standard deviation over the whole grey matter mask. This will be redundant for most measures, whose GM-averaged values are calculated above from the Numpy arrays. This is not redundant for FCS, which does not have a numpy array version.
-            if (metric.name == 'fcs'):
+            # Get the mean and standard deviation over the whole grey matter mask. This will be redundant for most measures, whose GM-averaged values are calculated above from the Numpy arrays. This is not redundant for FCS, or ReHo, which do not have a numpy array versions.
+            if (metric.name in ['fcs', 'reho'):
                 col_prefix = metric.name
                 col_mean = col_prefix+"_mean"
                 col_median = col_prefix+"_median"
