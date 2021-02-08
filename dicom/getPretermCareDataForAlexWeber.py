@@ -26,11 +26,11 @@ def isDicom(in_path):
     else:
         return False
 
-def buildPathList(in_dirs, first_file_in_dir=False): # get paths of all files in in_dirs
+def buildPathList(in_dirs, first_file_in_dir=False, followlinks=True): # get paths of all files in in_dirs
     """Build list of absolute paths of all DICOM files in specified directories."""
     pathList = []
     for in_dir in in_dirs:
-        for dirpath, dirnames, filenames in os.walk(in_dir):
+        for dirpath, dirnames, filenames in os.walk(in_dir, followlinks=True):
             for filename in filenames:
                 rel_path = os.path.join(dirpath, filename)
 
@@ -96,7 +96,7 @@ series_types = ["3DT1",
                 "DTI_derived",
                 "DWI",
                 "fMRI",
-                "GRE",
+                "field_map",
                 "unknown"]
 
 class Series(object): # information about the DICOM Series.    
@@ -224,7 +224,7 @@ class Series(object): # information about the DICOM Series.
         mracq = " ".join(self.MRAcquisitionType).lower()
 
         # Does it look like T1?
-        if ("t1" in desc) or (("mpr" in desc) and (not "t2" in desc)) or ("fl3d1r" in desc):
+        if (("t1" in desc) and ('flash' in desc)) or (("mpr" in desc) and (not "t2" in desc)) or ("fl3d1r" in desc):
             # Does it look like 3D?
             if ("3d" in mracq):
                 return True
@@ -245,10 +245,11 @@ class Series(object): # information about the DICOM Series.
                 return True
         return False
 
-    def __is_GRE(self):
+    def __is_field_map(self):
         ## Get the SeriesDescription and ImageType
         desc = " ".join(self.SeriesDescription).lower().replace("rpt", "").replace("repeat", "")
-        if (("gre" in desc) or ("field" in desc) or ("map" in desc)):
+#        if (("gre" in desc) or (("field" in desc) and ("map" in desc))):
+        if (("field" in desc) and ("map" in desc)):
             return True
     
     def __is_DTI(self):
@@ -258,7 +259,7 @@ class Series(object): # information about the DICOM Series.
         # Does it look like DTI?
         if ("dti" in desc):
             # Does it look like a GRE field mapping?
-            if (not self.__is_GRE()):
+            if (not self.__is_field_map()):
                 # Does it look like raw DTI, as opposed to a DTI-derived image (e.g. ADC, FA)?
                 if ("original" in imtype):
                     return True
@@ -271,7 +272,7 @@ class Series(object): # information about the DICOM Series.
         # Does it look like DTI
         if ("dti" in desc):
             # Does it look like a GRE field mapping?
-            if (not self.__is_GRE()):
+            if (not self.__is_field_map()):
                 # Does it look like a DTI-derived image, as opposed to raw DTI?
                 if ("derived" in imtype):
                     return True
@@ -292,7 +293,7 @@ class Series(object): # information about the DICOM Series.
         # Does it look like fMRI, and not a GRE field map?
         if (("fmri" in desc) or ("fcmri" in desc) or ("resting" in desc) or ("rsn" in desc) or ("bold" in desc)):
             # Does it look like a GRE field mapping?
-            if (not self.__is_GRE()):
+            if (not self.__is_field_map()):
                 # Does it look like 2D?
                 if ("2d" in mracq):
                     return True
@@ -309,7 +310,7 @@ class Series(object): # information about the DICOM Series.
                              ("DTI_derived", __is_DTI_derived),
                              ("DWI", __is_DWI),
                              ("fMRI", __is_fMRI),
-                             ("GRE", __is_GRE),
+                             ("field_map", __is_field_map),
                              ("unknown", __is_unknown)])
     def classify(self):
         self.checkAllFilesExamined() # ensure that all files have been examined.
@@ -345,7 +346,7 @@ class Study(object): # information about DICOM Study (i.e. about the "scan")
     def addDir(self, file_path):
         # Assume that the Study directory is one level above the directory containing the current file.
         study_dir = os.path.abspath(os.path.join(os.path.dirname(file_path), ".."))
-        print "Reading DICOM Study:", study_dir
+        #print "Reading DICOM Study:", study_dir
         self.study_dir.add(study_dir)
 
     def addStudyDate(self, file_path):
@@ -384,22 +385,51 @@ class Study(object): # information about DICOM Study (i.e. about the "scan")
         for SeriesInstanceUID, series in self.series.iteritems():
             series.summarize()
             
-def reportClassifications(studies):
+def reportClassifications(studies, out_dir=None):
     # Define helper for printing tabbed lines.
     def space(n, spacer="  "):
         return n*spacer
+
+    series_types_of_interest = ['3DT1', '2DT2', 'field_map', 'fMRI']
     
     for StudyInstanceUID, study in studies.iteritems():
+        included_series = []
         study_dir = list(study.study_dir)[0]
         print os.path.basename(study_dir)
-        for series_type in series_types:
+
+        # Print the included series of interest.
+        for series_type in series_types_of_interest:
             print space(1)+series_type
             for SeriesInstanceUID, series in study.series.iteritems():
                 if (series_type in series.series_type):
+                    included_series.append(series)
+                    
                     series_dir = list(series.series_dir)[0]
                     print space(2)+os.path.basename(series_dir)
+
+        # Print the excluded series.
+        excluded_series_names = []
+        print space(1)+"excluded"
+        for series_type in series_types:
+            if series_type in series_types_of_interest:
+                continue
+            for SeriesInstanceUID, series in study.series.iteritems():
+                if (series_type in series.series_type):
+                    series_dir = list(series.series_dir)[0]
+                    #print space(2)+os.path.basename(series_dir)
+                    excluded_series_names.append(os.path.basename(series_dir))
+        excluded_series_names.sort()
+        for series_name in excluded_series_names:
+            print space(2)+series_name
+
+        # Create a tar.gz file containing the selected series for the current study. Assume only one study dir and only one series dir, and that the series dir sits in the study dir.
+        out_name =  os.path.basename(list(study.study_dir)[0]) + '.tar.gz' 
+        out_path = os.path.join(out_dir, out_name)
+        tar_cmd = 'tar -cz -f '+out_path+' '+'-C '+os.path.dirname(list(study.study_dir)[0])+' '+' '.join([os.path.join(os.path.basename(os.path.dirname(list(series.series_dir)[0])), os.path.basename(list(series.series_dir)[0])) for series in included_series])
+        run_cmd(tar_cmd)
+        
             
-def classifyDicom(in_dirs, quick=False, first_file_in_dir=False, debug=False):
+def classifyDicom(in_dirs, quick=False, first_file_in_dir=False, debug=False, out_dir=None):
     # Get path to all DICOM files in in_dirs
     path_list = buildPathList(in_dirs, first_file_in_dir=first_file_in_dir)
 
@@ -426,7 +456,7 @@ def classifyDicom(in_dirs, quick=False, first_file_in_dir=False, debug=False):
         study.summarizeSeriesInStudy()
 
     # Report the classification results.
-    reportClassifications(studies)
+    reportClassifications(studies, out_dir=out_dir)
         
     # Print debug information.
     if debug:
@@ -470,9 +500,11 @@ if (__name__ == '__main__'):
     parser.add_argument("-q", "--quick", action="store_true", help="only use information from first file in each series. By default, read information from every file.")
     parser.add_argument("-f", "--first_file_in_dir", action="store_true", help="only use information from first DICOM file in each directory. By default, read information from every file. Note that using this option only makes sense if each DICOM Series is stored in a separate directory.")
     parser.add_argument("-d", "--debug", action="store_true", help="print debug information")
+    parser.add_argument('-o', '--out_dir', type=str, help='directory to which compressed studies will be saved')
     
     # Parse arguments.
     args = parser.parse_args()
 
     # Classify the input DICOM files.
-    classifyDicom(args.in_dirs, quick=args.quick, first_file_in_dir=args.first_file_in_dir, debug=args.debug)
+#    classifyDicom(args.in_dirs, quick=args.quick, first_file_in_dir=args.first_file_in_dir, debug=args.debug)
+    classifyDicom(**vars(args))
