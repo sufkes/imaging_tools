@@ -4,6 +4,9 @@ import os
 import sys
 import argparse
 
+def main():
+    return
+
 if (__name__ == '__main__'):
     # Create argument parser.
     description = """"""
@@ -21,6 +24,7 @@ if (__name__ == '__main__'):
         sys.exit()
 
     # Parse arguments.
-    args = parser.parse_args(**var(args))
+    args = parser.parse_args()
 
     # Run main function.
+    main(**var(args))
