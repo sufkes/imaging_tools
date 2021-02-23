@@ -13,6 +13,8 @@ from collections import OrderedDict
 from pprint import pprint
 from distanceCorrelation import distanceCorrelation
 
+import scipy.stats # for pearsonr()
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import misc
 #from misc.Timer import Timer
@@ -52,6 +54,7 @@ class Subject(object):
             #print "Error while normalizing time series for (subject, ROI):", self.subject_id, roi_name
             
     def makeDistanceCorrelationMatrix(self):
+        pearson_matrix = np.identity(self.num_rois)
         dcor_matrix = np.identity(self.num_rois)
         for roi_name_i, time_series_i in self.time_series.iteritems():
             roi_index_i = int(roi_name_i) - 1
@@ -64,12 +67,24 @@ class Subject(object):
                 geerligs_measure = np.sqrt(max(0.0, distance_correlation_squared))
                 dcor_matrix[roi_index_i, roi_index_j] = geerligs_measure
                 dcor_matrix[roi_index_j, roi_index_i] = geerligs_measure
+
+                # Also compute the Pearson correlation between the mean time series.
+                time_series_mean_i = time_series_i.mean(axis=1)
+                time_series_mean_j = time_series_j.mean(axis=1)
+                pearson_r = scipy.stats.pearsonr(time_series_mean_i,time_series_mean_j)[0]
+                pearson_matrix[roi_index_i, roi_index_j] = pearson_r
+                pearson_matrix[roi_index_j, roi_index_i] = pearson_r
         self.dcor_matrix = dcor_matrix
+        self.pearson_matrix = pearson_matrix
 
     def saveDistanceCorrelationMatrix(self, out_dir):
         out_filename = self.subject_id + ".txt"
         out_path = os.path.join(out_dir, out_filename)
         np.savetxt(out_path, self.dcor_matrix)
+
+        out_filename = self.subject_id + "_pearson.txt"
+        out_path = os.path.join(out_dir, out_filename)
+        np.savetxt(out_path, self.pearson_matrix)
 
     def plotDistanceCorrelationMatrix(self, out_dir):
         out_filename = self.subject_id + ".png"

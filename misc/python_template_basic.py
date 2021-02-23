@@ -27,4 +27,4 @@ if (__name__ == '__main__'):
     args = parser.parse_args()
 
     # Run main function.
-    main(**var(args))
+    main(**vars(args))
