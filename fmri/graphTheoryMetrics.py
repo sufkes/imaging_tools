@@ -6,6 +6,8 @@ import argparse
 from collections import OrderedDict
 from copy import deepcopy
 import warnings
+import datetime
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -142,17 +144,27 @@ def generateRandomNetworks(b_adj, w_adj, num_random_networks=100, custom_weighte
             #print pd.DataFrame({'real':sorted_degrees_real_w, 'rand':sorted_degrees_rand_w, 'difference':difference})[['real','rand','difference']] 
     return b_rand_list, w_rand_list
 
-def myCharPathBin(b_adj):
+def myCharPathBin(b_adj, custom_algorithm=False):
     #distance_binary_floyd, num_edges_shortest_path_binary, _ = bct.distance.distance_wei_floyd(b_adj, transform='inv') # same result as distance_bin
     distance_binary = bct.distance.distance_bin(b_adj)
-    charpath_binary, efficiency_binary, ecc_binary, radius_binary, diameter_binary = bct.distance.charpath(distance_binary, include_diagonal=False, include_infinite=False)
+    assert (np.diagonal(np.abs(b_adj)) == 0).all() # check that diagnoal is zero.
+    #print "Disconnected graph: ", (np.triu(distance_binary, k=1) == np.inf).any()
+    if custom_algorithm:
+        n = distance_binary.shape[0]
+        sum_inverses = 2.0*np.triu(1.0/distance_binary, k=1).sum() # exclude diagnoal; double-count
+        charpath_binary = float(1)/(sum_inverses/(n*(n-1)))
+    else:
+        charpath_binary, efficiency_binary, ecc_binary, radius_binary, diameter_binary = bct.distance.charpath(distance_binary, include_diagonal=False, include_infinite=False)
+    
     return charpath_binary
 
-def myCharPathWei(w_adj):
+def myCharPathWei(w_adj, custom_algorithm=False):
     #w_length = w_adj.copy() # "length" matrix; 1/weight for each weight in the weight matrix.
     #w_length = 1.0 / w_length
     #distance_weighted, num_edges_shortest_path_weighted = bct.distance.distance_wei(w_length)
     distance_weighted_floyd, num_edges_shortest_path_weighted, _ = bct.distance.distance_wei_floyd(w_adj, transform='inv') # same result as distance_wei (after inverting elements as required)
+    assert (np.diagonal(np.abs(w_adj)) == 0).all() # check that diagnoal is zero.
+    #print "Disconnected graph: ", (np.triu(distance_weighted_floyd, k=1) == np.inf).any()
     #diff = distance_weighted_floyd - distance_weighted
     #if (distance_weighted_floyd != distance_weighted).any():
         #print 'Normal distance and Floyd distance differ (weighted):'
@@ -167,7 +179,12 @@ def myCharPathWei(w_adj):
         #print 'biggest difference:'
         #print np.nanmax(diff)
         #print
-    charpath_weighted, efficiency_weighted, ecc_weighted, radius_weighted, diameter_weighted = bct.distance.charpath(distance_weighted_floyd, include_diagonal=False, include_infinite=False)
+    if custom_algorithm:
+        n = distance_weighted_floyd.shape[0]
+        sum_inverses = 2.0*np.triu(1.0/distance_weighted_floyd, k=1).sum() # exclude diagnoal; double-count
+        charpath_weighted = float(1)/(sum_inverses/(n*(n-1)))
+    else:
+        charpath_weighted, efficiency_weighted, ecc_weighted, radius_weighted, diameter_weighted = bct.distance.charpath(distance_weighted_floyd, include_diagonal=False, include_infinite=False)
     return charpath_weighted
 
 def normalizer(adj, rand_list, function, function_kwargs={}, scalar=True):
@@ -192,17 +209,95 @@ If 'function' returns a tuple, only the first value is taken and treated as a me
         rand_mean = rand_sum.sum()/rand_sum.shape[0]/float(len(rand_list))
         metric_mean = metric.mean() # e.g. mean of nodal clustering coefficient gives "clustering coefficient" as defined by Watts and Strogatz.
         metric_mean_normalized = metric_mean/rand_mean
-        print 'metric', metric
-        print 'metric_mean', metric_mean
-        print 'rand_sum', rand_sum
-        print 'rand_mean', rand_mean
-        print 'metric_mean_normalized', metric_mean_normalized
-        sys.exit()
         return metric, metric_mean, metric_mean_normalized, rand_mean # vector, scalar, scalar, scalar.
 
-def selectRegionPairs(matrix_paths, legend_path=None, gm_only=False, out_dir='.', atlas_string='aal', thresholds=np.arange(0.05, 0.51, 0.05), num_random_networks=2, seed=None, verbose=False, check_rand2=False):
-    # Set seed for NumPy random number generation. Use same seed in rep
+def computeAuc(auc_dict, out_dir, thresholds, min_thresh=None, max_thresh=None, weighted=False, atlas_string='atlaslabel'):
+    # By default, compute AUC over all thresholds in auc_dict
+    if min_thresh is not None:
+        thresholds = [t for t in thresholds if t >= min_thresh]
+    if max_thresh is not None:
+        thresholds = [t for t in thresholds if t <= max_thresh]
 
+    # Initialize a dataframe to store the AUC results for all subjects, to be analyzed later.
+    auc_df = pd.DataFrame(dtype=np.float64, index=auc_dict.keys())
+
+    print auc_df
+
+    bw_string = 'w' if weighted else 'b'
+
+    # Add metrics for each subject at each threshold, and the AUC value.
+    for subject, metric_dict in auc_dict.items():
+        print 'metric_dict',metric_dict
+        for metric_name, thresh_to_val_dict in metric_dict.items():
+            print 'thresh_to_val_dict',thresh_to_val_dict
+            metric_auc = None
+            val_old = None
+
+            for threshold in thresholds:
+                val_new = thresh_to_val_dict[threshold]
+                thresh_new = threshold
+                
+                if metric_auc is None: # if first threshold, initialize AUC array and continue to the next threshold.
+                    if np.isscalar(val_new): # if global metric
+                        metric_auc = 0
+                        metric_mean = val_new # for testing only.
+                    else: # if nodal metric
+                        metric_auc = np.zeros(shape=val_new.shape, dtype=np.float64)
+                        metric_mean = np.zeros(shape=val_new.shape, dtype=np.float64)
+                else: # add trapezoid area to AUC.
+                    trapezoid_area = (val_old + val_new) * (thresh_new - thresh_old) / 2.0
+                    metric_auc += trapezoid_area
+                    metric_mean += val_new
+
+                # Add value to dataframe.
+                if np.isscalar(val_new):
+                    col_name = bw_string+'_'+metric_name+'_thresh_'+"{:.2f}".format(thresh_new)
+                    auc_df.loc[subject, col_name] = val_new
+                else:
+                    for node_number, node_value in enumerate(val_new, 1):
+                        col_name = bw_string+'_'+metric_name+'_'+atlas_string+'_'+str(int(node_number))+'_thresh_'+'{:.2f}'.format(thresh_new)
+                        auc_df.loc[subject, col_name] = node_value
+                val_old = val_new
+                thresh_old = thresh_new
+
+            metric_int_mean = metric_auc/(thresholds[-1] - thresholds[0]) # this is what I think should be used in literature.
+            metric_mean /= float(len(thresholds)) # mean of values taken at regular density intervals should be very close to the mean based on the numerical integration using the trapezoidal rule.
+        
+            # Add AUC to dataframe:
+            # Add value to dataframe.
+            if np.isscalar(metric_auc):
+                col_name = bw_string+'_'+metric_name+'_auc'
+                auc_df.loc[subject, col_name] = metric_auc
+                col_name = bw_string+'_'+metric_name+'_intmean'
+                auc_df.loc[subject, col_name] = metric_int_mean
+            else:
+                for node_number, node_value in enumerate(metric_auc, 1):
+                    col_name = bw_string+'_'+metric_name+'_'+atlas_string+'_'+str(int(node_number))+'_auc'
+                    auc_df.loc[subject, col_name] = node_value
+                for node_number, node_value in enumerate(metric_int_mean, 1):
+                    col_name = bw_string+'_'+metric_name+'_'+atlas_string+'_'+str(int(node_number))+'_intmean'
+                    auc_df.loc[subject, col_name] = node_value
+
+            #print 'Metric:', metric_name
+            #print 'metric_auc:', metric_auc
+            #print 'metric_int_mean:', metric_int_mean
+            #print 'metric_mean:', metric_mean
+            #print
+
+    # Save the dataframe with all of the AUC results.
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    out_name = bw_string+'_auc_'+'{:.4f}-{:.4f}'.format(thresholds[0], thresholds[-1]) + '.csv'
+    out_path = os.path.join(out_dir, out_name)
+    auc_df.to_csv(out_path)
+    
+
+    
+
+def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.', atlas_string='aal', density_min=None, density_max=None, density_step=0.01, num_random_networks=100, seed=None, verbose=False, check_rand2=False):
+    # Set seed for NumPy random number generation. Use same seed in rep
+    np.random.seed(seed)
+    
     # Read legend.
     if legend_path:
         legend_df = pd.read_csv(legend_path)
@@ -213,9 +308,6 @@ def selectRegionPairs(matrix_paths, legend_path=None, gm_only=False, out_dir='.'
     keep_indices = [ii-1 for ii in legend_df['number']]
 
     legend_df.reset_index(drop=True, inplace=True) # reset index to [0, 1, ..., 63] but keep the 'number' column.
-    
-    # Initialize a dataframe to store the AUC results for all subjects, to be analyzed later.
-    auc_df = pd.DataFrame(dtype=np.float64)
 
     # Initialize a dataframe to store the raw correlation values between each pair of regions that are included, before thresholding.
     dcor_df = pd.DataFrame(dtype=np.float64)
@@ -274,7 +366,23 @@ def selectRegionPairs(matrix_paths, legend_path=None, gm_only=False, out_dir='.'
                                      ('sigma',OrderedDict()), # small-worldness
                                      ('global_efficiency',OrderedDict()),
                                      ('local_efficiency',OrderedDict()),
-                                     ('transitivity',OrderedDict())])
+                                     ('network_local_efficiency',OrderedDict()),
+                                     ('transitivity',OrderedDict()),
+                                     ('modularity',OrderedDict()) ])
+
+    ## Define a list of density values to compute AUC over.
+    # If density_min not set, set such that average binary degree > 2*log(N)
+    if density_min is None:
+        N = matrix_dict[matrix_dict.keys()[0]].shape[0]
+        density_min = np.round(2.0*np.log(N)/(N-1.0), decimals=2)
+        
+    # If density_max not set, set to a very high value and stop loop when sigma<1.1 for any subject.
+    if density_max is None:
+        temp_density_max = 0.80 + density_step
+    else:
+        temp_density_max = density_max + density_step
+    thresholds = list(np.arange(density_min, temp_density_max, density_step))
+    print 'Computing metrics over thresholds:', list(thresholds)
                              
     for threshold in thresholds:
         print 'Threshold: ', threshold
@@ -294,8 +402,7 @@ def selectRegionPairs(matrix_paths, legend_path=None, gm_only=False, out_dir='.'
             if verbose: print 'Generating random networks.'
             b_rand_list, w_rand_list = generateRandomNetworks(b_adj, w_adj, num_random_networks=num_random_networks)
             if check_rand2:
-                _, w_rand2_list = generateRandomNetworks(b_adj, w_adj, num_random_networks=num_random_networks)
-
+                _, w_rand2_list = generateRandomNetworks(b_adj, w_adj, num_random_networks=num_random_networks, custom_weighted_algorithm=False)
 
             #### Get network topology metrics.
             ## Betweenness centrality
@@ -313,13 +420,14 @@ def selectRegionPairs(matrix_paths, legend_path=None, gm_only=False, out_dir='.'
 
             ## Characteristic path length
             if verbose: print 'Calculating characteristic path length (binary).'
-            charpath_binary, lambda_binary, charpath_rand_mean_binary = normalizer(b_adj, b_rand_list, myCharPathBin)
+            #charpath_binary, lambda_binary, charpath_rand_mean_binary = normalizer(b_adj, b_rand_list, myCharPathBin) # Set disconnected nodes distance to zero.
+            charpath_binary, lambda_binary, charpath_rand_mean_binary = normalizer(b_adj, b_rand_list, myCharPathBin, function_kwargs={'custom_algorithm':True}) # Harmonic mean
 
             #out_name = subject + '_charpath_binary.npy'
             #saveMetric(lambda_binary, full_out_dir, out_name)
             b_auc_dict[subject]['charpath'][threshold] = charpath_binary
             b_auc_dict[subject]['lambda'][threshold] = lambda_binary
-            b_auc_dict[subject]['charpath_rand_mean'] = charpath_rand_mean_binary
+            b_auc_dict[subject]['charpath_rand_mean'][threshold] = charpath_rand_mean_binary
             #out_name = subject + '_charpath_efficiency_binary.npy'
             #saveMetric(efficiency_binary, full_out_dir, out_name)
             #out_name = subject + '_charpath_ecc_binary.npy'
@@ -331,11 +439,11 @@ def selectRegionPairs(matrix_paths, legend_path=None, gm_only=False, out_dir='.'
             if verbose: print 'Path length for real network (binary): '+str(charpath_binary)
             if verbose: print 'Lambda (binary): '+str(lambda_binary)
 
-
             if verbose: print 'Calculating characteristic path length (weighted).'
-            charpath_weighted, lambda_weighted, charpath_rand_mean_weighted = normalizer(w_adj, w_rand_list, myCharPathWei)
+            #charpath_weighted, lambda_weighted, charpath_rand_mean_weighted = normalizer(w_adj, w_rand_list, myCharPathWei) # Set disconnected nodes distance to zero.
+            charpath_weighted, lambda_weighted, charpath_rand_mean_weighted = normalizer(w_adj, w_rand_list, myCharPathWei, function_kwargs={'custom_algorithm':True}) # Harmonic mean
             if check_rand2:
-                _, lambda_weighted_rand2 = normalizer(w_adj, w_rand2_list, myCharPathWei)
+                _, lambda_weighted_rand2, _ = normalizer(w_adj, w_rand2_list, myCharPathWei, function_kwargs={'custom_algorithm':True}) # Harmonic mean
 
             #out_name = subject + '_charpath_weighted.npy'
             #saveMetric(lambda_weighted, full_out_dir, out_name)
@@ -365,23 +473,33 @@ def selectRegionPairs(matrix_paths, legend_path=None, gm_only=False, out_dir='.'
             b_auc_dict[subject]['global_clustering_coefficient'][threshold] = global_clustering_coefficient_binary
             b_auc_dict[subject]['gamma'][threshold] = gamma_binary
             b_auc_dict[subject]['global_clustering_coefficient_rand_mean'][threshold] = global_clustering_coefficient_rand_mean_binary
-            print 'Nodal clustering coefficient (binary):'
-            print clustering_coefficient_binary
-            print global_clustering_coefficient_binary
-            print gamma_binary
-            print global_clustering_coefficient_rand_mean_binary
-
-            print 
+            #if verbose: print 'Nodal clustering coefficient (binary):', clustering_coefficient_binary
+            if verbose: print 'Gamma (binary):', gamma_binary
 
             if verbose: print 'Calculating clustering coefficient (weighted).'
             #clustering_coefficient_weighted = bct.clustering.clustering_coef_wu(w_adj)
             clustering_coefficient_weighted, global_clustering_coefficient_weighted, gamma_weighted, global_clustering_coefficient_rand_mean_weighted = normalizer(w_adj, w_rand_list, bct.clustering.clustering_coef_wu, scalar=False)
+            if check_rand2:
+                _, _, gamma_weighted_rand2, _ = normalizer(w_adj, w_rand2_list, bct.clustering.clustering_coef_wu, scalar=False)
             #out_name = subject + '_clustering_coefficient_weighted.npy'
             #saveMetric(clustering_coefficient_weighted, full_out_dir, out_name)
             w_auc_dict[subject]['clustering_coefficient'][threshold] = clustering_coefficient_weighted
             w_auc_dict[subject]['global_clustering_coefficient'][threshold] = global_clustering_coefficient_weighted
             w_auc_dict[subject]['gamma'][threshold] = gamma_weighted
             w_auc_dict[subject]['global_clustering_coefficient_rand_mean'][threshold] = global_clustering_coefficient_rand_mean_weighted
+            #if verbose: print 'Nodal clustering coefficient (weighted):', clustering_coefficient_weighted
+            if verbose: print 'Gamma (weighted):', gamma_weighted
+            if check_rand2:
+                if verbose: print 'Gamma (weighted) (rand2):', gamma_weighted_rand2
+
+            ## Small-worldness
+            sigma_binary = gamma_binary/lambda_binary
+            b_auc_dict[subject]['sigma'][threshold] = sigma_binary
+            if verbose: print 'Sigma (binary):', sigma_binary
+
+            sigma_weighted = gamma_weighted/lambda_weighted
+            w_auc_dict[subject]['sigma'][threshold] = sigma_weighted
+            if verbose: print 'Sigma (weighted):', sigma_weighted
 
             ## Degree
             if verbose: print 'Calculating degree (binary).'
@@ -421,6 +539,11 @@ def selectRegionPairs(matrix_paths, legend_path=None, gm_only=False, out_dir='.'
             #out_name = subject + '_local_efficiency_weighted.npy'
             #saveMetric(local_efficiency_weighted, full_out_dir, out_name)
             w_auc_dict[subject]['local_efficiency'][threshold] = local_efficiency_weighted
+
+            ## Network local efficiency
+            b_auc_dict[subject]['network_local_efficiency'][threshold] = local_efficiency_binary.mean()
+
+            w_auc_dict[subject]['network_local_efficiency'][threshold] = local_efficiency_weighted.mean()
             
             ## Rich club
             #R_binary, Nk_binary, Ek_binary = bct.core.rich_club_bu(b_adj)
@@ -447,219 +570,69 @@ def selectRegionPairs(matrix_paths, legend_path=None, gm_only=False, out_dir='.'
             #out_name = subject + '_transitivity_weighted.npy'
             #saveMetric(transitivity_weighted, full_out_dir, out_name)
             w_auc_dict[subject]['transitivity'][threshold] = transitivity_weighted
-    return
-    
 
-###############################################################################################################################################
+            ## Modularity
+            if verbose: print 'Calculating modularity (binary).'
+            ci_binary, q_binary = bct.modularity.modularity_und(b_adj)
+            #out_name = subject + '_modularity_ci_binary.npy'
+            #saveMetric(ci_binary, full_out_dir, out_name)
+            #out_name = subject + '_modularity_q_binary.npy'
+            #saveMetric(q_binary, full_out_dir, out_name)
+            b_auc_dict[subject]['modularity'][threshold] = q_binary
 
-    for subject, matrix in matrix_dict.items():
-        # Initialize lists to store each metric at each density threshold.
-        auc = OrderedDict([('betweenness_binary',[]),
-                           ('betweenness_weighted',[]),
-                           ('charpath_lambda_binary',[]),
-                           ('charpath_lambda_weighted',[]),
-                           ('clustering_coefficient_binary',[]),
-                           ('clustering_coefficient_weighted',[]),
-                           ('degree_binary',[]),
-                           ('degree_weighted',[]),
-                           ('global_efficiency_binary',[]),
-                           ('global_efficiency_weighted',[]),
-                           ('local_efficiency_binary',[]),
-                           ('local_efficiency_weighted',[]),
-#                           ('rich_club_R_binary',[]), # varying size; not sure how to handle yet
-#                           ('rich_club_Nk_binary',[]),
-#                           ('rich_club_Ek_binary',[]),
-#                           ('rich_club_Rw_weighted',[],
-                           ('transitivity_binary',[]),
-                           ('transitivity_weighted',[])]
-        )
-        
-        # Threshold the matrix to get a range of densities)).
-        for threshold in thresholds:
-            # Make output directory.
-            full_out_dir = os.path.join(out_dir, 'thresh-'+"{:.4f}".format(threshold), subject)
-            if not os.path.isdir(full_out_dir):
-                os.makedirs(full_out_dir) # Create directory
-                #print 'Created directory:'+full_out_dir
+            if verbose: print 'Calculating modularity (weighted).'
+            ci_weighted, q_weighted = bct.modularity.modularity_und(w_adj)
+            #out_name = subject + '_modularity_ci_weighted.npy'
+            #saveMetric(ci_weighted, full_out_dir, out_name)
+            #out_name = subject + '_modularity_q_weighted.npy'
+            #saveMetric(q_weighted, full_out_dir, out_name)
+            w_auc_dict[subject]['modularity'][threshold] = q_weighted
 
-            # Get thresholded matrices (weighted and binary versions).
-            wadj = thresholdMatrix(matrix, threshold)
-            badj = wadj.copy()
-            badj[badj>0] = 1
+        #### Check whether this density threshold should be used as an endpoint in the AUC calculation.
+        ## Want average (binary) degree > 2*ln(N) (sets lower bound). First in 2007-Bullmore?
+        # This is solely dictacted by the density; need density
+        ## Want sigma (binary) > 1.1 for all patients (sets upper bound?). This never seems to occur, and I can't find an argment for the value 1.1.
+#        sigma_min = np.inf
+#        sigma_mean = 0
+#        for subject, metric_dict in w_auc_dict.items():
+#            sigma = metric_dict['sigma'][threshold]
+#            gamma = metric_dict['gamma'][threshold]
+#            lambda_b = metric_dict['lambda'][threshold]
+#            if sigma < sigma_min:
+#                sigma_min = sigma
+#            sigma_mean += sigma
+#            print 'Small worldness (binary) for subject '+subject+': '+str(sigma)
+#            print 'gamma:', gamma
+#            print 'lambda:', lambda_b
+#        sigma_mean /= float(len(b_auc_dict))
+#        print 'Minimum small worldness (binary):', sigma_min
+#        print 'Mean small worldness (binary):', sigma_mean
 
-            
-#            print 'Density threshold: '+str(threshold)
-#            print 'Density of wadj  : '+str(getNetworkDensity(wadj))
-#            print 'Density of badj  : '+str(getNetworkDensity(badj))
+    ## Save the auc_dict Python objects in case I want to change the threshold range without recomputing everything
+#    if not os.path.exists(out_dir):
+#        os.makedirs(out_dir)
 
-            out_name = subject + '_wadj.npy'
-            saveMetric(wadj, full_out_dir, out_name)
-            out_name = subject + '_badj.npy'
-            saveMetric(badj, full_out_dir, out_name)
+#    b_auc_args = {'auc_dict':b_auc_dict, 'out_dir':out_dir, 'thresholds':thresholds, 'weighted':False, 'atlas_string':atlas_string}
+#    b_pickle_name = 'b_auc_args_'+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")+'.pkl'
+#    b_pickle_path = os.path.join(out_dir, b_pickle_name)
+#    with open(b_pickle_path, 'w') as f:
+#        pickle.dump(b_auc_args, f)
 
-            #### Get network topology metrics.
-            ## Betweenness centrality
-            betweenness_binary = bct.centrality.betweenness_bin(badj)
-            out_name = subject + '_betweenness_binary.npy'
-            saveMetric(betweenness_binary, full_out_dir, out_name)
-            auc['betweenness_binary'].append(betweenness_binary)
-            
-            betweenness_weighted = bct.centrality.betweenness_wei(wadj)
-            out_name = subject + '_betweenness_weighted.npy'
-            saveMetric(betweenness_weighted, full_out_dir, out_name)
-            auc['betweenness_weighted'].append(betweenness_weighted)
+#    w_auc_args = {'auc_dict':w_auc_dict, 'out_dir':out_dir, 'thresholds':thresholds, 'weighted':True, 'atlas_string':atlas_string}
+#    w_pickle_name = 'w_auc_args_'+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")+'.pkl'
+#    w_pickle_path = os.path.join(out_dir, b_pickle_name)
+#    with open(w_pickle_path, 'w') as f:
+#        pickle.dump(w_auc_args, f)
 
-            ## Characteristic path length
-            lambda_binary, efficiency_binary, ecc_binary, radius_binary, diameter_binary = bct.distance.charpath(badj)
-            out_name = subject + '_charpath_lambda_binary.npy'
-            saveMetric(lambda_binary, full_out_dir, out_name)
-            auc['charpath_lambda_binary'].append(lambda_binary)
-            #out_name = subject + '_charpath_efficiency_binary.npy'
-            #saveMetric(efficiency_binary, full_out_dir, out_name)
-            #out_name = subject + '_charpath_ecc_binary.npy'
-            #saveMetric(ecc_binary, full_out_dir, out_name)
-            #out_name = subject + '_charpath_radius_binary.npy'
-            #saveMetric(radius_binary, full_out_dir, out_name)
-            #out_name = subject + '_charpath_diameter_binary.npy'
-            #saveMetric(diameter_binary, full_out_dir, out_name)
-            
-            lambda_weighted, efficiency_weighted, ecc_weighted, radius_weighted, diameter_weighted = bct.distance.charpath(wadj)
-            out_name = subject + '_charpath_lambda_weighted.npy'
-            saveMetric(lambda_weighted, full_out_dir, out_name)
-            auc['charpath_lambda_weighted'].append(lambda_weighted)
-            #out_name = subject + '_charpath_efficiency_weighted.npy'
-            #saveMetric(efficiency_weighted, full_out_dir, out_name)
-            #out_name = subject + '_charpath_ecc_weighted.npy'
-            #saveMetric(ecc_weighted, full_out_dir, out_name)
-            #out_name = subject + '_charpath_radius_weighted.npy'
-            #saveMetric(radius_weighted, full_out_dir, out_name)
-            #out_name = subject + '_charpath_diameter_weighted.npy'
-            #saveMetric(diameter_weighted, full_out_dir, out_name)
-            
-            ## Clustering coefficient
-            clustering_coefficient_binary = bct.clustering.clustering_coef_bu(badj)
-            out_name = subject + '_clustering_coefficient_binary.npy'
-            saveMetric(clustering_coefficient_binary, full_out_dir, out_name)
-            auc['clustering_coefficient_binary'].append(clustering_coefficient_binary)
+#    computeAuc(**b_auc_args)
+#    computeAuc(**w_auc_args)
 
-            clustering_coefficient_weighted = bct.clustering.clustering_coef_wu(wadj)
-            out_name = subject + '_clustering_coefficient_weighted.npy'
-            saveMetric(clustering_coefficient_weighted, full_out_dir, out_name)
-            auc['clustering_coefficient_weighted'].append(clustering_coefficient_weighted)
-
-            ## Degree
-            degree_binary = bct.degree.degrees_und(badj)
-            out_name = subject + '_degree_binary.npy'
-            saveMetric(degree_binary, full_out_dir, out_name)
-            auc['degree_binary'].append(degree_binary)
-            
-            degree_weighted = bct.degree.degrees_und(wadj)
-            out_name = subject + '_degree_weighted.npy'
-            saveMetric(degree_weighted, full_out_dir, out_name)
-            auc['degree_weighted'].append(degree_weighted)
-            
-            ## Global efficiency
-            global_efficiency_binary = bct.distance.efficiency_bin(badj, local=False)
-            out_name = subject + '_global_efficiency_binary.npy'
-            saveMetric(global_efficiency_binary, full_out_dir, out_name)
-            auc['global_efficiency_binary'].append(global_efficiency_binary)
-            
-            global_efficiency_weighted = bct.distance.efficiency_wei(wadj, local=False)
-            out_name = subject + '_global_efficiency_weighted.npy'
-            saveMetric(global_efficiency_weighted, full_out_dir, out_name)
-            auc['global_efficiency_weighted'].append(global_efficiency_weighted)
-            
-            ## Local efficiency
-            local_efficiency_binary = bct.distance.efficiency_bin(badj, local=True)
-            out_name = subject + '_local_efficiency_binary.npy'
-            saveMetric(local_efficiency_binary, full_out_dir, out_name)
-            auc['local_efficiency_binary'].append(local_efficiency_binary)
-            
-            local_efficiency_weighted = bct.distance.efficiency_wei(wadj, local=True)
-            out_name = subject + '_local_efficiency_weighted.npy'
-            saveMetric(local_efficiency_weighted, full_out_dir, out_name)
-            auc['local_efficiency_weighted'].append(local_efficiency_weighted)
-            
-            ## Rich club
-            R_binary, Nk_binary, Ek_binary = bct.core.rich_club_bu(badj)
-            out_name = subject + '_rich_club_R_binary.npy'
-            saveMetric(R_binary, full_out_dir, out_name)
-#            auc['rich_club_R_binary'].append(R_binary)
-            out_name = subject + '_rich_club_Nk_binary.npy'
-            saveMetric(Nk_binary, full_out_dir, out_name)
-#            auc['rich_club_Nk_binary'].append(Nk_binary)
-            out_name = subject + '_rich_club_Ek_binary.npy'
-            saveMetric(Ek_binary, full_out_dir, out_name)
-#            auc['rich_club_Ek_binary'].append(Ek_binary)
-
-            Rw_weighted = bct.core.rich_club_wu(wadj)
-            out_name = subject + '_rich_club_Rw_weighted.npy'
-            saveMetric(Rw_weighted, full_out_dir, out_name)
-#            auc['rich_club_Rw_weighted'].append(Rw_weighted)
-            
-            ## Transitivity
-            transitivity_binary = bct.clustering.transitivity_bu(badj)
-            out_name = subject + '_transitivity_binary.npy'
-            saveMetric(transitivity_binary, full_out_dir, out_name)
-            auc['transitivity_binary'].append(transitivity_binary)
-
-            transitivity_weighted = bct.clustering.transitivity_wu(wadj)
-            out_name = subject + '_transitivity_weighted.npy'
-            saveMetric(transitivity_weighted, full_out_dir, out_name)
-            auc['transitivity_weighted'].append(transitivity_weighted)
-
-            continue # skip modularity and community structure metrics for now.
-            ## Modularity (returns community structure required for other metrics)
-            ci_binary, q_binary = bct.modularity.modularity_und(badj) 
-            out_name = subject + '_modularity_ci_binary.npy'
-            saveMetric(ci_binary, full_out_dir, out_name)
-            out_name = subject + '_modularity_q_binary.npy'
-            saveMetric(q_binary, full_out_dir, out_name)
-
-            ci_weighted, q_weighted = bct.modularity.modularity_und(wadj)
-            out_name = subject + '_modularity_ci_weighted.npy'
-            saveMetric(ci_weighted, full_out_dir, out_name)
-            out_name = subject + '_modularity_q_weighted.npy'
-            saveMetric(q_weighted, full_out_dir, out_name)
-
-            ## Participation coefficient
-            
-
-        ## Get AUC (mean) for each measure and save.
-        # Make output directory.
-        full_out_dir = os.path.join(out_dir, 'auc_'+'{:.4f}-{:.4f}'.format(thresholds[0], thresholds[-1]), subject)
-        if not os.path.isdir(full_out_dir):
-            os.makedirs(full_out_dir) # Create directory
-        print('Warning: Determination of appropriate threshold boundaries for AUC calculation not yet determined. Using all density threshold values.')
-        print('Warning: Proper AUC calculation not yet implemented; using mean instead.')
-        for metric_name, values in auc.iteritems():
-
-            mean = np.array(values).mean(axis=0)
-            
-            out_name = subject + '_' + metric_name + '.npy'
-            saveMetric(mean, full_out_dir, out_name)
-
-            # Add metric to dataframe.
-            if mean.shape == ():
-                col_name = metric_name+'_'+atlas_string
-                auc_df.loc[subject, metric_name] = mean
-            else:
-                for roi_index, roi_mean in enumerate(mean):
-                    roi_number = legend_df.loc[roi_index, 'number']
-                    #roi_number_string = '{0:03d}'.format(roi_number)
-                    roi_number_string = str(roi_number)
-                    column_name = metric_name + '_'+atlas_string+'_' + roi_number_string
-                    auc_df.loc[subject, column_name] = roi_mean
-
-                    
-    # Save the dataframe with all of the AUC results.
-    full_out_dir = os.path.join(out_dir, 'auc_'+'{:.4f}-{:.4f}'.format(thresholds[0], thresholds[-1]))
-    out_name = 'auc_'+'{:.4f}-{:.4f}'.format(thresholds[0], thresholds[-1]) + '.csv'
-    out_path = os.path.join(full_out_dir, out_name)
-    auc_df.to_csv(out_path)
+    ## Compute the AUC for each metric.
+    computeAuc(b_auc_dict, out_dir, thresholds, weighted=False, atlas_string=atlas_string)
+    computeAuc(w_auc_dict, out_dir, thresholds, weighted=True, atlas_string=atlas_string)
     
     return
-
+    
 if (__name__ == '__main__'):
     # Create argument parser.
     description = """"""
@@ -677,6 +650,10 @@ if (__name__ == '__main__'):
     parser.add_argument('-n', '--num_random_networks', help='number of random networks to compare real network to when obtaining normalized metrics (e.g. normalized characteristic path and clustering coefficient). Default = 100', type=int, default=100)
     parser.add_argument('-v', '--verbose', help='print lots of information.', action='store_true')
     parser.add_argument('-s', '--seed', type=int, help='seed (int) for random number generation, used in construction of randomized networks. Set to the same value between runs to obtain the same set of randomized ')
+    parser.add_argument('-r', '--check_rand2', action='store_true', help='REMOVE THIS TESTING OPTION')
+    parser.add_argument('--density_min', type=float, help='Minimum network density for AUC calculation. Default: 2*log(N)/(N-1) rounded to two decimal places')
+    parser.add_argument('--density_max', type=float, help='Maximum network density for AUC calculation. Default: 0.80', default=0.80)
+    parser.add_argument('--density_step', type=float, help='Network density step size for AUC calculation. Default: 0.01', default=0.01)
 
     # Print help if no args input.
     if (len(sys.argv) == 1):
@@ -687,4 +664,4 @@ if (__name__ == '__main__'):
     args = parser.parse_args()
 
     # Run main function.
-    selectRegionPairs(**vars(args))
+    graphTheoryMetrics(**vars(args))
