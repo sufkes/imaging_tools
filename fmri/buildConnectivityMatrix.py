@@ -178,15 +178,6 @@ def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=
         print corr.shape
         print
 
-    ## Apply Fisher's r-to-z transformation.
-    if fisher_r_to_z:
-        corr = np.arctanh(corr)
-        if debug:
-            print "Correlation matrix after Fisher's r-to-z transformation:"
-            print corr[:10,:10]
-            print corr.shape
-            print
-
     ## Take the absolute values of the correlations.
     # From Wang 2015 - GRETNA:
     # """Previous R-fMRI studies have found that certain functional systems are anti-correlated (i.e., have a negative correlation) in their spontaneous brain activity (Greicius et al., 2003; Fox et al., 2005). However, negative correlations may also be introduced by global signal removal, a preprocessing step that is currently controversial (Fox et al., 2009; Murphy et al., 2009; Weissenbacher et al., 2009; Scholvinck et al., 2010). For network topology, negative correlations may have detrimental effects on TRT reliability (Wang et al., 2011) and exhibit organizations different from positive correlations (Schwarz and McGonigle, 2011). Accordingly, GRETNA provides options for researchers to determine the network connectivity members, based on which subsequent graph analyses are implemented: positive network (composed of only positive correlations), negative network (composed of only absolute negative correlations) or full network (composed of both positive correlations and the absolute values of the negative correlations)."""
@@ -198,6 +189,17 @@ def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=
             print corr.shape
             print
 
+    ## Apply Fisher's r-to-z transformation. # If fisher_r_to_z is true, the transformed correlation matrix will be used construct the adjacency matrix, otherwise the z-transformed result will just be saved separately.
+    corr_r = corr
+    corr_z = np.arctanh(corr)
+    if debug:
+        print "Correlation matrix after Fisher's r-to-z transformation:"
+        print corr_z[:10,:10]
+        print corr_z.shape
+        print
+    if fisher_r_to_z:
+        corr = corr_z
+    
     #### Calculate the network adjaceny matrices by thresholding the correlation matrix.
     ## Matrix requirements for the Brain Connectivity Toolbox (BCT), from their website:
     # """ 
@@ -257,11 +259,17 @@ def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=
     #### Calculate measures from the correlation matrix.
     ## Calcuate the functional connectivity strength (FCS) as in Cao et al. (2017):
     # "Specifically, for each voxel, the FCS was calculated as the average of the correlations between this voxel and all other voxels in the brain."
-    fcs = corr.mean(axis=1)
+    fcs_r = corr_r.mean(axis=1)
     if debug:
         print "FCS matrix:"
-        print fcs
-        print fcs.shape
+        print fcs_r
+        print fcs_r.shape
+        print
+    fcs_z = corr_z.mean(axis=1)
+    if debug:
+        print "FCS matrix:"
+        print fcs_z
+        print fcs_z.shape
         print
 
     #### Map measures masked, flatten voxel arrays back to image space.
@@ -291,11 +299,17 @@ def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=
 #    nib.save(node_degree_nii, node_degree_path)
 
     # FCS
-    fcs_image_space = flatMaskedToImageSpace(fcs, nonzero_bold_and_in_mask, bold.shape[:3])
-    fcs_nii = nib.Nifti1Image(fcs_image_space, bold_nii.affine, bold_nii.header)
-    fcs_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_fcs.nii.gz")
-    print "Saving FCS to:", fcs_path
-    nib.save(fcs_nii, fcs_path)
+    fcs_r_image_space = flatMaskedToImageSpace(fcs_r, nonzero_bold_and_in_mask, bold.shape[:3])
+    fcs_r_nii = nib.Nifti1Image(fcs_r_image_space, bold_nii.affine, bold_nii.header)
+    fcs_r_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_fcs_r.nii.gz")
+    print "Saving FCS to:", fcs_r_path
+    nib.save(fcs_r_nii, fcs_r_path)
+
+    fcs_z_image_space = flatMaskedToImageSpace(fcs_z, nonzero_bold_and_in_mask, bold.shape[:3])
+    fcs_z_nii = nib.Nifti1Image(fcs_z_image_space, bold_nii.affine, bold_nii.header)
+    fcs_z_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_fcs_z.nii.gz")
+    print "Saving FCS to:", fcs_z_path
+    nib.save(fcs_z_nii, fcs_z_path)
     # If only FCS NIFTI file is desired, return from function now.
     if fcs_only: 
         return
