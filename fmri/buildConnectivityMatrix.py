@@ -35,7 +35,7 @@ def flatMaskedToImageSpace(flat_masked_array, flat_mask, spatial_image_shape, me
 
     return measure_image_space
 
-def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=0.0, corr_dist_min=10.0, fisher_r_to_z=False, no_absolute=False, network_density=0.05, debug=False, voxel_map_only=False, **kwargs):
+def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=0.0, corr_dist_min=10.0, fisher_r_to_z=False, no_absolute=False, network_density=0.05, debug=False, voxel_map_only=False, fcs_only=False, **kwargs):
 
     if (out_dir is None):
         out_dir = os.path.dirname(bold_path) # save it wherever the BOLD image is
@@ -290,19 +290,22 @@ def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=
 #    print "Saving node degree to:", node_degree_path
 #    nib.save(node_degree_nii, node_degree_path)
 
-    # Weighted node degree
-    node_degree_weighted_image_space = flatMaskedToImageSpace(node_degree_weighted, nonzero_bold_and_in_mask, bold.shape[:3])
-    node_degree_weighted_nii = nib.Nifti1Image(node_degree_weighted_image_space, bold_nii.affine, bold_nii.header)
-    node_degree_weighted_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_wdeg.nii.gz")
-    print "Saving weighted node degree to:", node_degree_weighted_path
-    nib.save(node_degree_weighted_nii, node_degree_weighted_path)
-    
     # FCS
     fcs_image_space = flatMaskedToImageSpace(fcs, nonzero_bold_and_in_mask, bold.shape[:3])
     fcs_nii = nib.Nifti1Image(fcs_image_space, bold_nii.affine, bold_nii.header)
     fcs_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_fcs.nii.gz")
     print "Saving FCS to:", fcs_path
     nib.save(fcs_nii, fcs_path)
+    # If only FCS NIFTI file is desired, return from function now.
+    if fcs_only: 
+        return
+    
+    # Weighted node degree
+    node_degree_weighted_image_space = flatMaskedToImageSpace(node_degree_weighted, nonzero_bold_and_in_mask, bold.shape[:3])
+    node_degree_weighted_nii = nib.Nifti1Image(node_degree_weighted_image_space, bold_nii.affine, bold_nii.header)
+    node_degree_weighted_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_wdeg.nii.gz")
+    print "Saving weighted node degree to:", node_degree_weighted_path
+    nib.save(node_degree_weighted_nii, node_degree_weighted_path)    
 
     # "Voxel" map, which is required to map from the voxels in the map back to the voxels in the image. Depends on the BOLD image, mask, and mask threshold.
     voxel_map_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_voxelmap.npy")
@@ -363,9 +366,10 @@ if (__name__ == '__main__'):
     parser.add_argument("-d","--network_density", type=float, help="density of network for binary network. Density = (number of connections)/(number of potential connections). Default: 0.05", default=0.05)
     parser.add_argument("-z", "--fisher_r_to_z", action="store_true", help="apply Fisher's r-to-z transformation.")
     parser.add_argument("-a", "--no_absolute", action="store_true", help="do not take the absolute values of the correlations.")
+    parser.add_argument("-f", "--fcs_only", action="store_true", help="Save only the functional connectivity strength NIFTI file.")
+    
     parser.add_argument("--debug", action="store_true", help="debug mode - print lots of stuff.")
-
-    parser.add_argument("--voxel_map_only", action="store_true", help="special option")
+    parser.add_argument("--voxel_map_only", action="store_true", help="special option for debug")
     
     parser.add_argument("-v", "--measure_to_voxels", type=str, help="map a measure back to image space. Must include paths to the voxel map which was used when the connectivity matrix was constructed, and the measure (e.g. node degree), stored as NumPy arrays. The first axis of the measure array must have size equal to the number of nodes.", nargs=2, metavar=("VOXEL_MAP", "MEASURE"))    
     
