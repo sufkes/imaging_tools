@@ -189,7 +189,7 @@ def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=
             print corr.shape
             print
 
-    ## Apply Fisher's r-to-z transformation. # If fisher_r_to_z is true, the transformed correlation matrix will be used construct the adjacency matrix, otherwise the z-transformed result will just be saved separately.
+    ## Apply Fisher's r-to-z transformation.
     corr_r = corr
     corr_z = np.arctanh(corr)
     if debug:
@@ -197,7 +197,7 @@ def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=
         print corr_z[:10,:10]
         print corr_z.shape
         print
-    if fisher_r_to_z:
+    if fisher_r_to_z: # If fisher_r_to_z is True, the transformed correlation matrix will be used construct the adjacency matrix, otherwise the z-transformed result will just be saved separately.
         corr = corr_z
     
     #### Calculate the network adjaceny matrices by thresholding the correlation matrix.
