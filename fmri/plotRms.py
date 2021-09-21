@@ -3,11 +3,15 @@
 import os, sys
 import argparse
 from collections import OrderedDict
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import numpy as np
+import re
 
-def plotRms(in_paths, out_dir, num_vols_to_exclude=20):
+def plotRms(in_paths, out_dir, num_vols_to_exclude=20, ref_vol_at_underscore=1):
     for in_path in in_paths:
+        
         #rel = in_path.replace("abs", "rel")
         rel = os.path.join(os.path.dirname(in_path), os.path.basename(in_path).replace("abs", "rel"))
 
@@ -26,8 +30,12 @@ def plotRms(in_paths, out_dir, num_vols_to_exclude=20):
             
         # Find the best volumes to include if excluding exactly num_vol_to_exclude.
         # Volumes are considered worse if their RMS displacement relative to the previous volume is high.
-        num_vols_to_include = len(data_rel) - num_vols_to_exclude # should be 100 for MagNUM
-
+        if len(data_rel) > num_vols_to_exclude:
+            num_vols_to_include = len(data_rel) - num_vols_to_exclude # should be 100 for MagNUM
+            #print 'Minimum number of volumes to include: ' +  str(num_vols_to_include)
+        else:
+            continue
+        
         ## Need to somehow assign a "badness" value to every volume (including the first and last volumes).
         # Badness method (1): Set the relative displacement of the first volume (volume 0) to half that of the second volume (volume 1). Set the relative displacement of the second volume to half it's actual value. The logic behind this is that th
         #data_rel_search = data_rel
@@ -90,12 +98,13 @@ def plotRms(in_paths, out_dir, num_vols_to_exclude=20):
         data = np.loadtxt(in_path)
 
         fig = plt.figure()
-        plt.plot(data)
+        abs_line = plt.plot(data)
         if (not data_rel is None):
             plt.plot(data_rel)
             
-        plt.axis([0, 120, 0, 5])
-        ref_vol = int(os.path.basename(in_path).split('_')[1][3:])
+        plt.axis([0, len(data_rel), 0, 5])
+        ref_vol = os.path.basename(in_path).split('_')[ref_vol_at_underscore]
+        ref_vol = int(re.sub("[^0-9]", "", ref_vol)) # convert substring to an integer, after removing non-numeric characters
         plt.axvline(x=ref_vol, color='g') # line to indicate reference volume.
         plt.axvline(x=first_vol, color='r') # line to indicate start volume
         plt.axvline(x=last_vol, color='r') # line to indicate end volume
@@ -103,6 +112,9 @@ def plotRms(in_paths, out_dir, num_vols_to_exclude=20):
         plt.axvline(x=ext_last_vol, color='r', linestyle="--") # line to indicate end volume
         title = "start: "+str(first_vol)+", end: "+str(last_vol)+"\nstart (ext): "+str(ext_first_vol)+", end (ext): "+str(ext_last_vol)
         plt.title(title)
+        plt.xlabel('Volume')
+        plt.ylabel('Displacement (mm)')
+        plt.legend(['absolute', 'relative'])
         
         out_name = os.path.basename(in_path) + ".png"
         out_path = os.path.join(out_dir, out_name)
@@ -125,9 +137,10 @@ if (__name__ == '__main__'):
     
     # Define optional arguments.
     parser.add_argument("-o", "--out_dir", help="directory to save figures in. Default is current directory", default=os.getcwd())
+    parser.add_argument("-u", "--ref_vol_at_underscore", type=int, help="number of underscores before the reference volume in the file name; assume file name has format [some]_[text]_[text]<reference volume>_[more text]", default=1)
     
     # Parse arguments.
     args = parser.parse_args()
 
     # Do stuff
-    plotRms(in_paths=args.in_paths, out_dir=args.out_dir)
+    plotRms(in_paths=args.in_paths, out_dir=args.out_dir, ref_vol_at_underscore=args.ref_vol_at_underscore)
