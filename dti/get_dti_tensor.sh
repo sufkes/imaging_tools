@@ -14,6 +14,10 @@
 #module load fsl
 #source /hpf/tools/centos6/fsl/5.0.8/etc/fslconf/fsl.sh
 
+
+module load fsl/6.0.0
+source "$FSLDIR"/etc/fslconf/fsl.sh
+
 # Move to target directory which contains a raw DTI in NIFTI format, a bvec file, and a bval file.
 base_dir="$1"
 cd $base_dir
@@ -31,26 +35,32 @@ if [ $(echo "$raw_dti" | wc -w) == 1 ] && [ $(echo "$bvec" | wc -w) == 1 ] && [ 
     echo "bvec file    :" $bvec;
     echo "bval file    :" $bval;
     
-    # Create eddy current corrected file
+    ## Create eddy current corrected file
 #    reference_volume=0 # assume reference volume is 0 (should be if converted to NIFTI using dcm2nii or dcm2niix).
-    reference_volume="$(whereIsBZero.py "$bval")"
+    reference_volume="$(/home/sufkes/sufkes_imaging/dti/whereIsBZero.py "$bval")"
     echo "Performing eddy current correction with b=0 reference volume" "$reference_volume"
     ecc="ecc"
 #    /hpf/tools/centos6/fsl/5.0.8/bin/eddy_correct "${base_dir}/${raw_dti}" "${base_dir}/${ecc}" "${reference_volume}"
     eddy_correct "${base_dir}/${raw_dti}" "${base_dir}/${ecc}" "${reference_volume}"
 
-    # Create brain mask for DTI data. Use fractional intensity threshold = 0.3; do not output brain-extracted image; output binary brain mask image.
+    ## Create brain mask for DTI data. Use fractional intensity threshold = 0.3; do not output brain-extracted image; output binary brain mask image.
     echo "Performing brain mask extraction"
     brain="_brain" # suffix for brain mask
 #    /hpf/tools/centos6/fsl/5.0.8/bin/bet "${base_dir}"/"${ecc}" "${base_dir}"/"${ecc}${brain}" -f 0.3 -g 0 -n -m 
     bet "${base_dir}"/"${ecc}" "${base_dir}"/"${ecc}${brain}" -f 0.3 -g 0 -n -m 
 
-    # Reconstruct diffusion tensor
+    ## Reconstruct diffusion tensor
     echo "Reconstructing diffusion tensor"
     dti="dti" # output file prefix
 #    /hpf/tools/centos6/fsl/5.0.8/bin/dtifit --data="${base_dir}"/"${ecc}" --out="${base_dir}"/"${dti}" --mask="${base_dir}"/"${ecc}${brain}"_mask --bvecs="${base_dir}"/"${bvec}" --bvals="${base_dir}"/"${bval}"
     dtifit --data="${base_dir}"/"${ecc}" --out="${base_dir}"/"${dti}" --mask="${base_dir}"/"${ecc}${brain}"_mask --bvecs="${base_dir}"/"${bvec}" --bvals="${base_dir}"/"${bval}"
 
+    ## Calculate radial diffusivity (dtifit does not calclate this). Note that axial diffusivity is L1.
+    L2_path="$base_dir"/dti_L2.nii.gz
+    L3_path="$base_dir"/dti_L3.nii.gz
+    RD_path="$base_dir"/dti_RD.nii.gz
+    
+    fslmaths "$L2_path" -add "$L3_path" -div 2 "$RD_path"
 else
     echo "Found multiple NIFTI or bval or bvec files. Skipping directory"
 fi

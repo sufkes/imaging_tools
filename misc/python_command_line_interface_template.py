@@ -10,7 +10,7 @@ def main():
 if (__name__ == '__main__'):
     # Create argument parser.
     description = """"""
-    parser = argparse.ArgumentParser(description=description)
+    parser = argparse.ArgumentParser(description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     # Define positional arguments.
 #    parser.add_argument("", help="")
@@ -18,7 +18,7 @@ if (__name__ == '__main__'):
     # Define optional arguments.
 #    parser.add_argument("-", "--", help="")
 
-    # Print help if no args input.
+    # Print help if no arguments input.
     if (len(sys.argv) == 1):
         parser.print_help()
         sys.exit()
