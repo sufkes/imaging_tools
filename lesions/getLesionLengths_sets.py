@@ -182,7 +182,7 @@ for volume_index in range(len(volume_list)):
         length_z = 0.0
         for coord_1 in lesion:
             for coord_2 in lesion:
-                dist_x = np.abs(float(coord_1[0]) - float(coord_2[0]) + 1)*x_sep
+                dist_x = np.abs(float(coord_1[0]) - float(coord_2[0]) + 1)*x_sep ## this is incorrect. need to add 1 AFTER the absolute.
                 dist_y = np.abs(float(coord_1[1]) - float(coord_2[1]) + 1)*y_sep
                 dist_z = np.abs(float(coord_1[2]) - float(coord_2[2]) + 1)*z_sep
                 dist = np.sqrt(dist_x**2 + dist_y**2 + dist_z**2)
