@@ -6,7 +6,7 @@ Members of the Miller lab with an RIT-HPC account should be able to run these sc
 
 ```source /hpf/largeprojects/smiller/tools/python_environments/activate_py3env.sh```
 
-This will load the required HPC modules, activate a Python environment with the required packages installed, and add the script directories to your `$PATH` so that they can be run by name.
+This will load the required HPC modules, activate a Python environment with the required packages installed, and add the script directories to your `$PATH` variable so that they can be run by name.
 
 ### `dicom/` - Tools for processing DICOM files
 * `processDicom.py` - Sort DICOM files into directories.
