@@ -55,6 +55,7 @@ class LabelImage(object):
     """Class storing all relevant data from an input NIFTI or MINC file"""
     def __init__(self, file_path, combine_labels=False):
         self.file_path = file_path
+        self.file_name = os.path.basename(file_path)
         self.combine_labels = combine_labels
         self.setFileType()
         self.readFile() # get the array data and the size of each pixel along each direction
@@ -153,12 +154,12 @@ class LabelImage(object):
 
             label_stats['num_clusters'] = len(label_volume.clusters)
 
-            label_stats['volume_tot_px'] = volumes_px.sum()
-            label_stats['volume_mean_px'] = volumes_px.mean()
-            label_stats['volume_max_px'] = volumes_px.max()
-            label_stats['volume_tot_mm3'] = label_stats['volume_tot_px']*self.pixvol
-            label_stats['volume_mean_mm3'] = label_stats['volume_mean_px']*self.pixvol
-            label_stats['volume_max_mm3'] = label_stats['volume_max_px']*self.pixvol
+            label_stats['vol_tot_px'] = volumes_px.sum()
+            label_stats['vol_mean_px'] = volumes_px.mean()
+            label_stats['vol_max_px'] = volumes_px.max()
+            label_stats['vol_tot_mm3'] = label_stats['vol_tot_px']*self.pixvol
+            label_stats['vol_mean_mm3'] = label_stats['vol_mean_px']*self.pixvol
+            label_stats['vol_max_mm3'] = label_stats['vol_max_px']*self.pixvol
 
             label_stats['extent_mean_mm'] = extents_mm.mean()
             label_stats['extent_max_mm'] = extents_mm.max()
@@ -167,49 +168,98 @@ class LabelImage(object):
             
         self.image_stats = image_stats
 
-def reportStats(file_path, img, datasheet_path):
-    ## Add stats for current image to dataframe.
-    if (not datasheet_path is None) and os.path.isfile(datasheet_path):
-        df = pd.read_csv(datasheet_path)
-    else:
-        df = pd.DataFrame()        
-    
-    file_name = os.path.basename(file_path)
-    for label_val, label_stats in img.image_stats.items():
-        ## Add row for current (file_name, label_val):
-        new_index = len(df)
-        df.loc[new_index, 'file_name'] = file_name
-        df.loc[new_index, 'label'] = label_val
-        for stat_name, stat_val in label_stats.items():
-            df.loc[new_index, stat_name] = stat_val
+class LabelImageManager(object):
+    """Class to manage all of the input label images"""
+    def __init__(self, file_paths, combine_labels):
+        self.file_paths = file_paths
+        self.combine_labels = combine_labels
+        self.setLabelImageList()
 
-    if not datasheet_path is None:
-        df.to_csv(datasheet_path, index=False)
-    print(df.to_string())
-    return df
+    def setLabelImageList(self):
+        self.label_image_list = []
+        for file_path in self.file_paths:
+            label_image = LabelImage(file_path, combine_labels=self.combine_labels)
+            self.label_image_list.append(label_image)
 
-def getRoiStats(file_path, datasheet_path, combine_labels):
-    """Input a 3D NIFTI or MINC file containing regions of interest (ROIs) labelled with integers. For each integer label, report statistics on size and position. Pairs of labelled voxels lying adjacent to each other along a square or cubic diagonal are assumed to belong to the same region."""
+    def reportStats(self, datasheet_path):
+        """Report stats for all label images contained in the label image list"""
 
-    ## Open image and compute statistics on the labelled ROIs.
-    img = LabelImage(file_path, combine_labels=combine_labels)
+        ## Initiliaze dataframe.
+        if (not datasheet_path is None) and os.path.isfile(datasheet_path):
+            raise Exception('Output datasheet path already exists. Please specify a different value path.')
+        else:
+            df = pd.DataFrame()
 
-    ## Report the statistics.
-    reportStats(file_path, img, datasheet_path)
-    
-    return
+        ## Add stats for each label image.
+        for label_image in self.label_image_list: 
+            for label_val, label_stats in label_image.image_stats.items():
+                ## Add row for current (file_path, label_val):
+                new_index = len(df) # get new row to add the data to.
+                df.loc[new_index, 'file_name'] = label_image.file_name
+                #df.loc[new_index, 'file_path'] = label_image.file_path
+                df.loc[new_index, 'label'] = label_val
+                for stat_name, stat_val in label_stats.items():
+                    df.loc[new_index, stat_name] = stat_val
+
+        # Set data types so that columns are printed pretty.
+        df['label'] = df['label'].astype(np.int32)
+        df['num_clusters'] = df['num_clusters'].astype(np.int32)
+        df['vol_tot_px'] = df['vol_tot_px'].astype(np.int32)
+        df['vol_max_px'] = df['vol_max_px'].astype(np.int32)
+
+        # If combining labels, remove the "label" column to avoid confusion.
+        if self.combine_labels:
+            df.drop(columns='label', inplace=True)
+            
+        if not datasheet_path is None:
+            df.to_csv(datasheet_path, index=False)
+        print(df.to_string(index=False))
+        return df
+
+class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
+    pass
+
+def roiStats(file_paths, datasheet_path, combine_labels):
+    """Calculate statistics on 3D images with region of interest (ROI) clusters labelled with integers. For each integer label, statistics on cluster size are reported. Pairs of labelled voxels lying adjacent to each other along a square or cubic diagonal are assumed to belong to the same cluster."""
+
+    # Open the images and compute statistics on the ROI clusters.
+    label_image_manager = LabelImageManager(file_paths, combine_labels)
+
+    # Report cluster statistics.
+    label_image_manager.reportStats(datasheet_path)
 
 if (__name__ == '__main__'):
     # Create argument parser.
-    description = getRoiStats.__doc__
-    parser = argparse.ArgumentParser(description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    description = roiStats.__doc__
+    epilog = """# List of reported statistics:
+num_clusters:
+    number of separate clusters 
+vol_tot_px:
+    total volume of labelled clusters, in voxels
+vol_mean_px:
+    mean volume of clusters, in voxels
+vol_max_px:
+    volume of largest cluster, in voxels
+vol_tot_mm3:
+    total volume of labelled clusters, in mm^3
+vol_mean_mm3:
+    mean volume of clusters, in mm^3
+vol_max_mm3:
+    volume of largest cluster, in mm^2
+extent_mean_mm:
+    mean extent of clusters, in mm
+extent_max_mm:
+    extent of cluster with largest extent, in mm
+
+Cluster "extent" is defined as the maximum distance between two points on the surface of the cluster."""
+    parser = argparse.ArgumentParser(description=description, epilog=epilog, formatter_class=HelpFormatter)#, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     # Define positional arguments.
-    parser.add_argument("file_path", type=str, help="path to input NIFTI or MINC file")
+    parser.add_argument('file_paths', type=str, help='paths to input NIFTI or MINC files', nargs='+')
     
     # Define optional arguments.
-    parser.add_argument("-d", "--datasheet_path", type=str, help='Path to CSV containing statistics for input images. If file exists, data will be appended to it.')
-    parser.add_argument("-c", "--combine_labels", help="Combine all nonzero labels. By default, statistics are computed for each nonzero label separately. If this flag is set, all nonzero labels will be treated as one. This may be useful, for example, if lesions in the left and right hemispheres are labelled differently, but you want statistics across all lesions.", action='store_true')
+    parser.add_argument('-d', '--datasheet_path', type=str, help='Path to CSV containing statistics for input images. If file exists, data will be appended to it. If no path is specified, the report will be printed to screen, and nothing will be saved.')
+    parser.add_argument('-c', '--combine_labels', help='Combine all nonzero labels. By default, statistics are computed for each nonzero label separately. If this flag is set, all nonzero labels will be treated as one. This may be useful, for example, if lesions in the left and right hemispheres are labelled differently, but you want statistics across all lesions.', action='store_true')
 
     # Print help if no arguments input.
     if (len(sys.argv) == 1):
@@ -220,4 +270,4 @@ if (__name__ == '__main__'):
     args = parser.parse_args()
 
     # Run main function.
-    getRoiStats(**vars(args))
+    roiStats(**vars(args))

@@ -9,11 +9,12 @@ Members of the Miller lab with an RIT-HPC account should be able to run these sc
 This will load the required HPC modules, and will activate a Python environment with the required Python packages installed.
 
 ### `dicom/` - Tools for processing DICOM files
-* `processDicom.py` - Command line tool for sorting DICOM files into directories based on data in the DICOM headers. Run `processDicom.py -h` for usage.
+* `processDicom.py` - Command line tool for sorting DICOM files into directories. Run `processDicom.py -h` for usage.
 * `anonDicom.py` - Command line tool for deidentifying DICOM files. Run `anonDicom.py -h` for usage.
 ### `dti/` - Tools for processing and analyzing diffusion tensor imaging data
 ### `fmri/` - Tools for processing and analyzing functional MRI data
 ### `misc/` - Tools for miscellaneous image processing tasks
+* `roiStats.py` - Tool for reporting statistics on size and extent of region of interest clusters in 3D images. Run `roiStats.py -h` for usage. For examples, see `/hpf/largeprojects/smiller/examples/lesion_extent/README.txt` on HPC.
 ### `old_scripts/` - Old scripts that are kept for reference.
 
 ## Requirements

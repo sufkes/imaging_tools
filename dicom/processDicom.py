@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 import os, sys
 import re
 import string
@@ -247,7 +247,7 @@ def processDicom(in_path, out_dir, clobber=False, move=False, verbose=False, deb
         while (not operation_completed):
             try:
                 cmd_mvdcm = '%s "%s" "%s"' % (operation, in_path, full_out) # overwrite temp file with dicom file
-		os.open(full_out, os.O_CREAT|os.O_EXCL) # create empty temp file at destination path
+                os.open(full_out, os.O_CREAT|os.O_EXCL) # create empty temp file at destination path
                 output, errors = run_cmd(cmd_mvdcm, debug, verbose) # Copying DCM with new name
                 operation_completed = True
             except OSError:
