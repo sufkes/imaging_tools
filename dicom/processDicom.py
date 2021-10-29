@@ -30,7 +30,7 @@ lut_value = {}# dict for storing header values
 def run_cmd(sys_cmd, debug, verbose):
 # one line call to output system command and control debug state
     if verbose:
-        print sys_cmd
+        print(sys_cmd)
     if not debug:
         p = subprocess.Popen(sys_cmd, stdout = subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         output, errors = p.communicate()
@@ -65,14 +65,14 @@ def clean_tag_value(tag_value):
 def processDicom(in_path, out_dir, clobber=False, move=False, verbose=False, debug=False, extension='.dcm', visit_id=None, omit_study_uid=False, omit_series_uid=False, substitute_tag=None, subject_id=None, study_date=None, rename_file=False, recursive=False):
     # Check if file is a directory or is not DICOM
     if os.path.isdir(in_path):
-        print "Error: Input path is a directory. To sort all files in a directory, use the '-r' flag."
+        print("Error: Input path is a directory. To sort all files in a directory, use the '-r' flag.")
         return
 
     cmd_file = 'file "%s"' % (in_path)
     output, errors = run_cmd(cmd_file, 0, 0)
     if (not "DICOM medical imaging data" in output):
         err_msg = "Error: File appears to be non-DICOM or corrupted. Not sorting: %s" % (in_path)
-        print err_msg
+        print(err_msg)
         return
 
     # Determine what type of operation to carry out
@@ -83,15 +83,15 @@ def processDicom(in_path, out_dir, clobber=False, move=False, verbose=False, deb
 
     # Steven Ufkes - Use alternate tags if specified.
     if (substitute_tag != None):
-#        print "Old lut_tag:"
-#        print lut_tag
+#        print("Old lut_tag:")
+#        print(lut_tag)
         for pair in substitute_tag:
             for tag_name in lut_tag:
                 if (lut_tag[tag_name] == pair[0]):
                     lut_tag[tag_name] = pair[1]
                     break
-#        print "New lut_tag:"
-#        print lut_tag
+#        print("New lut_tag:")
+#        print(lut_tag)
                         
     
     # Check scanner type (0008,0070 - Manufacturer tag)
@@ -115,8 +115,8 @@ def processDicom(in_path, out_dir, clobber=False, move=False, verbose=False, deb
             # Dump dcmheader and grap header line
             cmd_dcmdump = 'dcmdump "%s" | grep %s' % (in_path, lut_tag[tag_name])
             output, errors = run_cmd(cmd_dcmdump, 0, 0)
-#            print cmd_dcmdump
-#            print output
+#            print(cmd_dcmdump)
+#            print(output)
             if (scanner_type == 'philips') and (tag_name == 'InstanceNumber'): # Check if Philips type dicom and looking for InstanceNumber
                 for line in output.split('\n'): # Split output into separate lines
                     if (not line=='') and (line.find('[0]') == -1): # Ignore all lines without 'real' instance information
@@ -124,20 +124,20 @@ def processDicom(in_path, out_dir, clobber=False, move=False, verbose=False, deb
 
             # Steven Ufkes - general check for multiple tags
             elif (len(output.split('\n')) > 2): 
-                print "Warning: Multiple values found for tag "+tag_name+" in file "+in_path
-                print output
+                print("Warning: Multiple values found for tag "+tag_name+" in file "+in_path)
+                print(output)
                 for line in output.split('\n'):    
                     if (not line=='') and (line.find('(no value available)') == -1): # Ignore all lines without 'real' instance information; Use first line found with data.
                         output = line
                         break
-                print "Using value: "+output.split('[')[1].split(']')[0]
+                print("Using value: "+output.split('[')[1].split(']')[0])
     
             # Custom error check for missing tags - Steven Ufkes 2018-11-16
             try: 
                 tag_value = output.split('[')[1].split(']')[0]    # Grab value between [ ]
 #                tag_value = clean_tag_value(tag_value)
             except IndexError:
-                print "Warning: Unknown DICOM tag: "+tag_name+" in file "+os.path.join(in_path)
+                print("Warning: Unknown DICOM tag: "+tag_name+" in file "+os.path.join(in_path))
                 tag_value = "Unknown"+tag_name
         # Replace bad characters
         tag_value = clean_tag_value(tag_value)
@@ -214,7 +214,7 @@ def processDicom(in_path, out_dir, clobber=False, move=False, verbose=False, deb
                 # if non-suffixed file exists (ie. echo number = 1) then add suffix
                 if (os.path.exists(full_out)):
                     if (verbose):
-                        print 'Renaming destination file - first echo'
+                        print('Renaming destination file - first echo')
                     fname_new = '%s_01%s' % (os.path.splitext(full_out)[0], extension)
                     cmd_mvdest = 'mv %s %s' % (full_out, fname_new)
                     output, errors = run_cmd(cmd_mvdest, debug, verbose)
@@ -304,7 +304,7 @@ processDicom.py /path/to/in/dir/ /path/to/out/dir/ -r
 
     # Check that input path exists
     if (not os.path.exists(args.in_path)):
-        print "Error: Input path does not exist:", args.in_path
+        print("Error: Input path does not exist:", args.in_path)
         sys.exit()
 
     # Build list of files to sort.
@@ -312,7 +312,7 @@ processDicom.py /path/to/in/dir/ /path/to/out/dir/ -r
         file_path_list = [args.in_path]
     else:
         if (not os.path.isdir(args.in_path)):
-            print "Error: Input path is not a directory, but the '-r' flag was used. Quitting."
+            print("Error: Input path is not a directory, but the '-r' flag was used. Quitting.")
             sys.exit()
         file_path_list = buildPathList(args.in_path)
     num_files = len(file_path_list)
@@ -320,9 +320,9 @@ processDicom.py /path/to/in/dir/ /path/to/out/dir/ -r
     # Sort the files based on their DICOM headers and the arguments provided.
     if (args.recursive):
         if (num_files == 0):
-            print "Error: No files found in input directory."
+            print("Error: No files found in input directory.")
         else:
-            print "Attempting to sort "+str(len(file_path_list))+" files."
+            print("Attempting to sort "+str(len(file_path_list))+" files.")
     for file_path in file_path_list:
         processDicom(file_path, args.out_dir, clobber=args.clobber, move=args.move, verbose=args.verbose, debug=args.debug, extension=args.extension, visit_id=args.visit_id, omit_study_uid=args.omit_study_uid, omit_series_uid=args.omit_series_uid, substitute_tag=args.substitute_tag, subject_id=args.subject_id, study_date=args.study_date, rename_file=args.rename_file, recursive=args.recursive)
 

@@ -13,7 +13,7 @@ import subprocess
 
 def run_cmd(sys_cmd, verbose):
     if verbose:
-        print sys_cmd
+        print(sys_cmd)
     p = subprocess.Popen(sys_cmd, stdout = subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     output, errors = p.communicate()
     return output, errors
@@ -31,7 +31,7 @@ def buildPathList(in_dir): # get paths of all files in in_dir
 def anonDicom(in_path, name=None, level=2, modify_pid=False, print_only=False, force=False):
     # Check if file is a directory or is not DICOM
     if os.path.isdir(in_path):
-        print "Error: Input path is a directory. To anonymize all files in a directory, use the '-r' flag."
+        print("Error: Input path is a directory. To anonymize all files in a directory, use the '-r' flag.")
         return
 
     # Check if file appears to be DICOM using the Unix command 'file'. This may fail for real DICOM files which are missing information in the header. In such cases, consider running anonDicom with the '-f --force' flag enabled, to skip this check.
@@ -40,7 +40,7 @@ def anonDicom(in_path, name=None, level=2, modify_pid=False, print_only=False, f
         output, errors = run_cmd(cmd_file, 0)
         if (not "DICOM medical imaging data" in output):
             err_msg = "Error: File appears to be non-DICOM or corrupted. Not anonymizing: %s" % (in_path)
-            print err_msg
+            print(err_msg)
             return
 
     # Define list of tags to remove (excluding PatientName and PatientID)
@@ -212,14 +212,14 @@ def anonDicom(in_path, name=None, level=2, modify_pid=False, print_only=False, f
                 for tag in name_tags["LO"]:
                     cmd_dcmodify += ' -ma "%s=%s"' % (tag, name)
         else:
-#            print 'WARNING: No name specified, PatientName will not be changed.'
+#            print('WARNING: No name specified, PatientName will not be changed.')
             pass
 
         cmd_dcmodify += ' "%s"' % (in_path)
     
         # Execute anonymization command.
         output, errors = run_cmd(cmd_dcmodify, 0)
-#        print errors
+#        print(errors)
 
     else: # if merely reporting PHI. Do this in a separate script.
         # Write dcmdump command to find and print all PHI tags that exist in the header.
@@ -228,7 +228,7 @@ def anonDicom(in_path, name=None, level=2, modify_pid=False, print_only=False, f
         name_tags["PN"] = ["(0010,0010)"]
         name_tags["LO"] = ["(0010,0020)"]
         for tag_list in [name_tags, tags]:
-            for key, tags in tag_list.iteritems():
+            for key, tags in tag_list.items():
                 for tag in tags:
                     tags_string += tag+'|'
         tags_string = tags_string.rstrip('|') # remove trailing '|'.
@@ -236,8 +236,8 @@ def anonDicom(in_path, name=None, level=2, modify_pid=False, print_only=False, f
 
         # Execute dcmdump command.
         output, errors = run_cmd(cmd_dcmdump, 0)
-        print output
-        print errors
+        print(output)
+        print(errors)
     return
 
 if (__name__ == "__main__"):
@@ -287,7 +287,7 @@ anonDicom.py /path/to/my/directory -r
 
     # Check that input path exists
     if (not os.path.exists(args.in_path)):
-        print "Error: Input path does not exist:", args.in_path
+        print("Error: Input path does not exist:", args.in_path)
         sys.exit()
 
     # Build list of files to anonymize.
@@ -295,7 +295,7 @@ anonDicom.py /path/to/my/directory -r
         file_path_list = [args.in_path]
     else:
         if (not os.path.isdir(args.in_path)):
-            print "Error: Input path is not a directory, but the '-r' flag was used. Quitting."
+            print("Error: Input path is not a directory, but the '-r' flag was used. Quitting.")
             sys.exit()
         file_path_list = buildPathList(args.in_path)
     num_files = len(file_path_list)
@@ -303,13 +303,13 @@ anonDicom.py /path/to/my/directory -r
     # Anonymize
     if (args.recursive):
         if (num_files == 0):
-            print "Error: No files found in input directory."
+            print("Error: No files found in input directory.")
         else:
-            print "Attempting to anonymize "+str(len(file_path_list))+" files."
+            print("Attempting to anonymize "+str(len(file_path_list))+" files.")
     for file_path in file_path_list:
         anonDicom(file_path, args.name, level=args.level, modify_pid=args.modify_pid, print_only=args.print_only, force=args.force)
 
-# WHAT I SHOULD DO WITH THIS SCRIPT:
+## Possible improvements to this script:
 # Create a lookup table for all the DICOM tags which specifies the tag type, importance level.
 # Another table should specifed the value to change each tag type to.
 # I should then have two separate commands, one which performs the anonymization, and another
