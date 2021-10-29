@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 #### Python code to deidentify a DICOM file
 ## This script was written for use in a UNIX or UNIX-like operating system, which includes the UNIX 'file' function.
