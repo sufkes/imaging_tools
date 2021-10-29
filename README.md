@@ -8,6 +8,8 @@ Members of the Miller lab with an RIT-HPC account should be able to run these sc
 
 This will load the required HPC modules, activate a Python environment with the required packages installed, and add the script directories to your `$PATH` variable so that they can be run by name.
 
+## Available tools
+Scripts that do not have an entry in this list may not work yet.
 ### `dicom/` - Tools for processing DICOM files
 * `processDicom.py` - Sort DICOM files into directories.
   * Run `processDicom.py -h` for usage.
