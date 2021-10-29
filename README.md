@@ -9,10 +9,12 @@ Members of the Miller lab with an RIT-HPC account should be able to run these sc
 This will load the required HPC modules, and will activate a Python environment with the required Python packages installed.
 
 ### `dicom/` - Tools for processing DICOM files
+* `processDicom.py` - Command line tool for sorting DICOM files into directories based on DICOM Study and Series. Run `python3 processDicom.py -h` for usage.
+* `anonDicom.py` - Command line tool for deidentifying DICOM files. Run `python3 anonDicom.py -h` for usage.
 ### `dti/` - Tools for processing and analyzing diffusion tensor imaging data
 ### `fmri/` - Tools for processing and analyzing functional MRI data
-### `minc/` - Tools for processing MINC files
-### `misc/` - Tools for miscellaneous image processing tasks 
+### `misc/` - Tools for miscellaneous image processing tasks
+### `old_scripts/` - Old scripts that are kept for reference.
 
 ## Requirements
 The following software is required. All packages are already installed on HPC and can be activated as described above.

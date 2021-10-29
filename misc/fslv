@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-in_dir="$1"
-raw_dti="$(find "$in_dir" -type f | grep ".nii" | grep -vE 'dti_|ecc' | head -1)"
-/Users/steven\ ufkes/Downloads/FSLeyes.app/Contents/MacOS/fsleyes "$raw_dti" -b 60 -c 70 "$in_dir"/*FA* -b 60 -c 70 -d "$in_dir"/*V1* -b 65 -c 85 -d -ot rgbvector -mo "$in_dir"/*FA*
