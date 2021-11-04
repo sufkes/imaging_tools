@@ -9,8 +9,15 @@ import pandas as pd
 def getNegativeCases(cases_path):
     with open(cases_path, 'r') as f:
         noises = f.read()
+        print('raw:', noises)
     noises = noises.strip().lstrip('[').rstrip(']').replace(' ','').split(',')
-    noises = [int(i) for i in noises]
+    if noises == ['']:
+        #noises = []
+        msg = 'Scan has zero components labelled as noise. This scenario is not handled by this script. Problematic labels path: '+cases_path
+        raise Exception(msg)
+    else:
+        noises = [int(i) for i in noises]
+    print('after:', noises)
     return noises
 
 def getClasses(classes_path):
@@ -48,6 +55,7 @@ def main(run_name, subjects, thresholds, in_dir, verbose=True):
             
             negative_cases = getNegativeCases(cases_path)
             negative_classes, positive_classes = getClasses(classes_path)
+
             ics = sorted(negative_classes + positive_classes)
             positive_cases = [i for i in ics if not i in negative_cases]
 
