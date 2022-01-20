@@ -23,10 +23,11 @@ then
 	exit 1
 fi
 
-module load dcmtk
+#module load dcmtk
+source /home/sufkes/miller
 module load parallel
-export PATH=$PATH:/home/sufkes/sufkes_imaging/dicom
-export PATH=$PATH:/home/sufkes/sufkes_imaging/misc
+#export PATH=$PATH:/home/sufkes/sufkes_imaging/dicom
+#export PATH=$PATH:/home/sufkes/sufkes_imaging/misc
 
 NP=$(wc -l $PBS_NODEFILE | awk '{print $1}') # Should return the number of physical CPU cores.
 
