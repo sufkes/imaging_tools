@@ -42,4 +42,5 @@ The following software is required. All packages are already installed on HPC an
   * scikit-image
 * DCMTK (https://dicom.offis.de/index.php.en)
 * FSL (https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FslInstallation)
-* MINC Toolkit (https://bic-mni.github.io/)
+* MINC Toolkit (https://bic-mni.github.io)
+* ANTs (https://github.com/ANTsX/ANTs)

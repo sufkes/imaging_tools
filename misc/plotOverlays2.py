@@ -17,6 +17,8 @@ class Image(object):
         
 
 def plotOverlays(main_path, labels_paths, display_mode, num_cuts, out_dir, out_path, alpha):
+    print('Warning: This script is not finished.')
+    
     ## Load main image.
     main = Image(main_path, 'main')
     
