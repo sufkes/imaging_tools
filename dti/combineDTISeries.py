@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ISSUES: Currently I am getting errors about misalignment or dimension incongruence.
 
@@ -10,11 +10,9 @@ from combineBvecs import combineBvecs # for concatenating bval and bvec files
 def run_cmd(sys_cmd, verbose=False):
     # One line call to output system command and control debug state.
     if (verbose):
-        print sys_cmd
+        print(sys_cmd)
     p = subprocess.Popen(sys_cmd, stdout = subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     output, errors = p.communicate()
-#    print output
-#    print errors
     return output, errors
 
 def findFiles(in_dir):
@@ -40,14 +38,14 @@ def findFiles(in_dir):
 def combineDTISeries(in_dirs, out_dir):
     # File type and number checks
     if (len(in_dirs) < 2):
-        print "Error: Must specify at least 2 DTI series to combine."
+        raise Exception("Must specify at least 2 DTI series to combine.")
         return
 
     # Create out directory
     if (out_dir == None):
         out_dir = os.path.join(os.getcwd(), 'combined')
     if (not os.path.exists(out_dir)):
-        print 'Creating directory:', out_dir
+        print('Creating directory:', out_dir)
         os.mkdir(out_dir)
     elif (not os.path.isdir(out_dir)):
         raise ValueError('out_dir exists, but is not a directory.')

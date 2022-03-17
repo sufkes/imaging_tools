@@ -1,18 +1,18 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import sys, os
 import argparse
 
 def combineBvecs(path1, path2, outpath):
-    with open(path1, 'rb') as fh:
+    with open(path1, 'r') as fh:
         file1 = fh.readlines()
-    with open(path2, 'rb') as fh:
+    with open(path2, 'r') as fh:
         file2 = fh.readlines()
 
     lines_combined = []
     for line_num in range(len(file1)):
         lines_combined.append(file1[line_num].rstrip() + ' ' + file2[line_num])
 
-    with open(outpath, 'wb') as fh:
+    with open(outpath, 'w') as fh:
         fh.writelines(lines_combined)
     return
 
