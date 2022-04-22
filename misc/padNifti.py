@@ -20,7 +20,11 @@ def main(in_path, out_path, x_pad, y_pad, z_pad, t_pad):
         else:
             img_arr = np.expand_dims(img_arr, axis=3)
             padding = (x_pad, y_pad, z_pad, t_pad)
-            
+    elif len(img_arr.shape) == 4:
+        padding = (x_pad, y_pad, z_pad, t_pad)
+    else:
+        raise Exception('Input image must be either 3D or 4D.')
+        
     img_arr_pad = np.pad(img_arr, padding)
     
     ## Generate a new NIFTI file.
