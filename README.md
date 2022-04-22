@@ -20,6 +20,8 @@ Scripts that do not have an entry in this list may not work yet.
 ### `misc/` - Tools for miscellaneous image processing tasks
 * `makeThumbs.py` - Generate thumbnails of 3D images with overlays for rapid viewing.
   * Run `makeThumbs.py -h` for usage.
+* `padNifti.py` - Add zero padding slices/volumes to NIFTI image. Padding can be added to specific sides of specific dimensions.
+  * Run `padNifti.py -h` for usage.
 * `roiStats.py` - Report statistics on size and extent of region of interest clusters in 3D images.
   * Run `roiStats.py -h` for usage.
   * For examples, see `/hpf/largeprojects/smiller/examples/lesion_extent/README.txt` on HPC.
