@@ -8,25 +8,33 @@ import nibabel as nib
 import numpy as np
 
 def main(in_path, out_path, x_pad, y_pad, z_pad, t_pad):
-    # Load the original image and extra the data array.
+    ## Load the original image and extra the data array.
     img_nii = nib.load(in_path)
     img_arr = img_nii.get_fdata()
 
-    # Pad the data array.
-    img_arr_pad = np.pad(img_arr, (x_pad, y_pad, z_pad, t_pad))
-
-    # Generate a new NIFTI file.
+    ## Pad the data array.
+    # If image is 3D, and time/volume padding is not requested, leave it 3D.
+    if len(img_arr.shape) == 3:
+        if t_pad == (0,0):
+            padding = (x_pad, y_pad, z_pad)
+        else:
+            img_arr = np.expand_dims(img_arr, axis=3)
+            padding = (x_pad, y_pad, z_pad, t_pad)
+            
+    img_arr_pad = np.pad(img_arr, padding)
+    
+    ## Generate a new NIFTI file.
     affine_pad = img_nii.affine
     header_pad = img_nii.header
     img_nii_pad = nib.nifti1.Nifti1Image(img_arr_pad, affine_pad, header=header_pad)
 
-    # Save the padded image.
+    ## Save the padded image.
     nib.save(img_nii_pad, out_path)
     return img_nii_pad
 
 if (__name__ == '__main__'):
     # Create argument parser.
-    description = '''Pad NIFTI image with zeros.'''
+    description = '''Pad NIFTI image with zeros. Input image must be 3D or 4D.'''
     parser = argparse.ArgumentParser(description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     # Define positional arguments.
