@@ -10,7 +10,7 @@ def combineBvecs(path1, path2, outpath):
 
     lines_combined = []
     for line_num in range(len(file1)):
-        lines_combined.append(file1[line_num].rstrip() + ' ' + file2[line_num])
+        lines_combined.append(file1[line_num].rstrip() + '  ' + file2[line_num])
 
     with open(outpath, 'w') as fh:
         fh.writelines(lines_combined)
