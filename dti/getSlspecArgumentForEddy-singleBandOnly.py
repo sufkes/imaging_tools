@@ -20,6 +20,13 @@ def main(json_path, out_path, num_slices, save_guesses):
         slice_timing_known = False
         print("Warning: SliceTiming tag not found in BIDS sidecar. To save guesses for the slice ordering, run with flag --save_guesses.")
 
+    if (num_slices is None):
+        try:
+            num_slices = len(slice_timing)
+        except:
+            raise Exception('Could not determine number of slices in image; rerun with num_slices set.')
+    
+        
     # Make two guesses of the slice ordering, assuming interleaved acquisition with the 
     slice_orders_guess_0 = [None] * num_slices
     slice_orders_guess_1 = [None] * num_slices

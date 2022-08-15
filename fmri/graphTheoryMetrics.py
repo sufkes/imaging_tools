@@ -312,7 +312,8 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
     legend_df.reset_index(drop=True, inplace=True) # reset index to [0, 1, ..., 63] but keep the 'number' column.
 
     # Initialize a dataframe to store the raw correlation values between each pair of regions that are included, before thresholding.
-    dcor_df = pd.DataFrame(dtype=np.float64)
+    dcor_df = pd.DataFrame(dtype=np.float64) # store the correlation values after applying transforms
+    dcor_original_df = pd.DataFrame(dtype=np.float64) # store the correlation values before applying transforms
     
     # Read the correlation matrix for each subject.
     matrix_dict = OrderedDict()
@@ -328,14 +329,8 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
         for ii in range(matrix.shape[0]):
             matrix[ii, ii] = 0
 
-        # Save the correlation values to a dataframe before thresholding or taking absolute values of the correlations.
-        for ii in range(matrix.shape[0]-1):
-            for jj in range(ii+1, matrix.shape[0]):
-                dcor = matrix[ii, jj]
-                ii_label_num = legend_df.loc[ii, 'number']
-                jj_label_num = legend_df.loc[jj, 'number']
-                column_name = 'dc_'+atlas_string+'_'+str(ii_label_num)+'_'+str(jj_label_num)
-                dcor_df.loc[subject, column_name] = dcor
+        # Store a copy of the correlations matrix before applying any transform (e.g. absolute value).
+        matrix_original = matrix.copy()
 
 
         ("none", "abs", "pos", "z", "z_abs", "z_pos")
@@ -364,14 +359,31 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
         
         matrix_dict[subject] = matrix
 
+        # Save the correlation values to a dataframe before and after applying a transform.
+        for ii in range(matrix.shape[0]-1):
+            for jj in range(ii+1, matrix.shape[0]):
+                dcor = matrix[ii, jj]
+                dcor_original = matrix_original[ii, jj]
+                
+                ii_label_num = legend_df.loc[ii, 'number']
+                jj_label_num = legend_df.loc[jj, 'number']
+                column_name = 'dc_'+atlas_string+'_'+str(ii_label_num)+'_'+str(jj_label_num)
+                
+                dcor_df.loc[subject, column_name] = dcor
+                dcor_original_df.loc[subject, column_name] = dcor_original
+        
     # Create output directory if it does not exist.
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    # Save the dataframe with the distance correlation values.
+    # Save the dataframe with the correlation values before and after transformation.
     out_name = 'cor_'+atlas_string+'_n'+str(matrix.shape[0])+'.csv'
     out_path = os.path.join(out_dir, out_name)
     dcor_df.to_csv(out_path)
+
+    out_name = 'raw_cor_'+atlas_string+'_n'+str(matrix_original.shape[0])+'.csv'
+    out_path = os.path.join(out_dir, out_name)
+    dcor_original_df.to_csv(out_path)
 
     ## Compute graph theory metrics.
     b_auc_dict = OrderedDict() # stores binary network metrics for every subject at each threshold
