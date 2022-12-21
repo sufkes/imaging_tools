@@ -12,12 +12,7 @@ def main(in_path, out_path, x_axis, y_axis, z_axis):
     img_nii = nib.load(in_path)
     img_arr = img_nii.get_fdata()
 
-    ## Pad the data array.
-    # If image is 3D, and time/volume padding is not requested, leave it 3D.
-    if len(img_arr.shape) != 3:
-        raise Exception('Image must be 3D.')
-        
-    ## Generate a new NIFTI file.
+    ## Store the header and affine from the original file.
     affine = img_nii.affine
     header = img_nii.header
 
@@ -33,7 +28,7 @@ def main(in_path, out_path, x_axis, y_axis, z_axis):
         
     ## Save the padded image.
     nib.save(img_nii, out_path)
-    return img_nii_pad
+    return img_nii
 
 if (__name__ == '__main__'):
     # Create argument parser.
