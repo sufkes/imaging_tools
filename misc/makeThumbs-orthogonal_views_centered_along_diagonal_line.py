@@ -7,7 +7,7 @@ import nibabel as nib
 import numpy as np
 from matplotlib import pyplot as plt
 
-def main(in_path, out_path, mask_path, mask_cmap, mask_alpha, mask_binarize, num_views, num_major_columns, view_spacing):
+def main(in_path, out_path, mask_path, mask_cmap, mask_alpha, mask_binarize, mask_vmin, num_views, num_major_columns, view_spacing):
     # Load image as numpy array.
     img_nii = nib.load(in_path)
     img_array = img_nii.get_fdata()
@@ -117,9 +117,9 @@ def main(in_path, out_path, mask_path, mask_cmap, mask_alpha, mask_binarize, num
             #axes[row_index, start_col + 1].imshow(np.rot90(mask_plot_array[:,viewpoint[1],:]), cmap=mask_cmap_modified, aspect=aspect_ratios[1], alpha=mask_alpha, vmin=mask_vmin)
             #axes[row_index, start_col + 2].imshow(np.rot90(mask_plot_array[:,:,viewpoint[2]]), cmap=mask_cmap_modified, aspect=aspect_ratios[2], alpha=mask_alpha, vmin=mask_vmin)
             try:
-                axes[row_index, start_col + 0].imshow(np.rot90(mask_plot_array[viewpoint[0],:,:]), cmap=mask_cmap_modified, aspect=aspect_ratios[0], alpha=mask_alpha)
-                axes[row_index, start_col + 1].imshow(np.rot90(mask_plot_array[:,viewpoint[1],:]), cmap=mask_cmap_modified, aspect=aspect_ratios[1], alpha=mask_alpha)
-                axes[row_index, start_col + 2].imshow(np.rot90(mask_plot_array[:,:,viewpoint[2]]), cmap=mask_cmap_modified, aspect=aspect_ratios[2], alpha=mask_alpha)
+                axes[row_index, start_col + 0].imshow(np.rot90(mask_plot_array[viewpoint[0],:,:]), cmap=mask_cmap_modified, aspect=aspect_ratios[0], alpha=mask_alpha, vmin=mask_vmin)
+                axes[row_index, start_col + 1].imshow(np.rot90(mask_plot_array[:,viewpoint[1],:]), cmap=mask_cmap_modified, aspect=aspect_ratios[1], alpha=mask_alpha, vmin=mask_vmin)
+                axes[row_index, start_col + 2].imshow(np.rot90(mask_plot_array[:,:,viewpoint[2]]), cmap=mask_cmap_modified, aspect=aspect_ratios[2], alpha=mask_alpha, vmin=mask_vmin)
             except IndexError: # viewpoint could possibly extend outside array; if so, simply plot nothing here.
                 pass
                 
@@ -151,7 +151,7 @@ if (__name__ == '__main__'):
     parser.add_argument('--mask_cmap', type=str, default='Greens', help='mask overlay color map. Must be the name of a Matplotlib Colormap. See https://matplotlib.org/stable/tutorials/colors/colormaps.html for options.')
     parser.add_argument('--mask_alpha', type=float, default=0.5, help='mask overlay alpha (opacity). Must be value between 0 and 1.')
     parser.add_argument('--mask_binarize', action='store_true', help='binarize mask (set values > 0 to 1; values < 0 to 0.')
-    #parser.add_argument('--mask_vmin', type=float, help='minimum value to display for mask; values below with will have zero opacity.', default=0.1)
+    parser.add_argument('--mask_vmin', type=float, help='minimum value to display for mask; values below with will have zero opacity.', default=0.1)
 
     parser.add_argument('--num_views', type=int, help='number of points along a diagonal line on which orthogonal (3-axis) views will be centered', default=6)
     parser.add_argument('--num_major_columns', type=int, help='number of columns of orthogonal views', default=2)

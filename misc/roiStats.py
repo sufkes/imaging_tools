@@ -186,13 +186,18 @@ class LabelImageManager(object):
 
         ## Initiliaze dataframe.
         if (not datasheet_path is None) and os.path.isfile(datasheet_path):
-            raise Exception('Output datasheet path already exists. Please specify a different value path.')
+            #raise Exception('Output datasheet path already exists. Please specify a different value path.')
+            df = pd.read_csv(datasheet_path)
+
+            # If datasheet was for a single label, the 'label' column.
+            print(f'Warning: Appending to file: "{datasheet_path}"')
         else:
             df = pd.DataFrame()
 
         ## Add stats for each label image.
         for label_image in self.label_image_list: 
             for label_val, label_stats in label_image.image_stats.items():
+                print(label_val, label_stats)
                 ## Add row for current (file_path, label_val):
                 new_index = len(df) # get new row to add the data to.
                 df.loc[new_index, 'file_name'] = label_image.file_name
@@ -200,9 +205,12 @@ class LabelImageManager(object):
                 df.loc[new_index, 'label'] = label_val
                 for stat_name, stat_val in label_stats.items():
                     df.loc[new_index, stat_name] = stat_val
-
+                    
         # Set data types so that columns are printed pretty.
-        df['label'] = df['label'].astype(np.int32)
+        try:
+            df['label'] = df['label'].astype(np.int32) # will raise Exception if contains NA, which will happen if a loaded CSV file had it's label column removed.
+        except pd.errors.IntCastingNaNError:
+            pass 
         df['num_clusters'] = df['num_clusters'].astype(np.int32)
         df['vol_tot_px'] = df['vol_tot_px'].astype(np.int32)
         df['vol_max_px'] = df['vol_max_px'].astype(np.int32)
@@ -220,7 +228,10 @@ class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescript
     pass
 
 def roiStats(file_paths, datasheet_path, combine_labels):
-    """Calculate statistics on 3D images with region of interest (ROI) clusters labelled with integers. For each integer label, statistics on cluster size are reported. Pairs of labelled voxels lying adjacent to each other along a square or cubic diagonal are assumed to belong to the same cluster."""
+    """Calculate statistics on 3D images with region of interest (ROI) clusters labelled with integers. For each integer label, statistics on cluster size are reported. Pairs of labelled voxels lying adjacent to each other along a square or cubic diagonal are assumed to belong to the same cluster.
+
+Warning: This script will use too much memory if many images are input at once. If you want to run for many images, it may be necessary to repeatedly call the script for each image. The same output CSV file can be specified each time, in which case data will be appended.
+"""
 
     # Open the images and compute statistics on the ROI clusters.
     label_image_manager = LabelImageManager(file_paths, combine_labels)
@@ -245,7 +256,7 @@ vol_tot_mm3:
 vol_mean_mm3:
     mean volume of clusters, in mm^3
 vol_max_mm3:
-    volume of largest cluster, in mm^2
+    volume of largest cluster, in mm^3
 extent_mean_mm:
     mean extent of clusters, in mm
 extent_max_mm:
