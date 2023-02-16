@@ -34,14 +34,6 @@ import bct.algorithms as bct
     # The adjacency matrix is nxn, so we need to find the correlation threshold such that the adjacency matrix filled with a ratio of (n-1)/n*(density).
     # I.e. The adjacency matrix has n zeros which do not correspond to possible connections, so the proportion of nonzero elements in the adjacency matrix will be slightly less than the network density (a factor of (n-1)/2 less).
 
-def readTxt(file_path):
-    array = np.loadtxt(file_path)
-    return array
-
-def readNpy():
-    raise Exception('This function is not implemented yet.')
-    return
-
 def thresholdMatrix(matrix, density_threshold):
     num_nodes = matrix.shape[0]
     percentile = ( 1 - density_threshold * float(num_nodes-1)/float(num_nodes) ) * 100.0
@@ -221,15 +213,11 @@ def computeAuc(auc_dict, out_dir, thresholds, min_thresh=None, max_thresh=None, 
     # Initialize a dataframe to store the AUC results for all subjects, to be analyzed later.
     auc_df = pd.DataFrame(dtype=np.float64, index=auc_dict.keys())
 
-    print(auc_df)
-
     bw_string = 'w' if weighted else 'b'
 
     # Add metrics for each subject at each threshold, and the AUC value.
     for subject, metric_dict in auc_dict.items():
-        print('metric_dict', metric_dict)
         for metric_name, thresh_to_val_dict in metric_dict.items():
-            print('thresh_to_val_dict', thresh_to_val_dict)
             metric_auc = None
             val_old = None
 
@@ -278,12 +266,6 @@ def computeAuc(auc_dict, out_dir, thresholds, min_thresh=None, max_thresh=None, 
                     col_name = bw_string+'_'+metric_name+'_'+atlas_string+'_'+str(int(node_number))+'_intmean'
                     auc_df.loc[subject, col_name] = node_value
 
-            #print 'Metric:', metric_name
-            #print 'metric_auc:', metric_auc
-            #print 'metric_int_mean:', metric_int_mean
-            #print 'metric_mean:', metric_mean
-            #print
-
     # Save the dataframe with all of the AUC results.
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -296,7 +278,7 @@ def fisher(r):
     z = np.arctanh(r)
     return z
 
-def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.', atlas_string='aal', density_min=None, density_max=None, density_step=0.01, num_random_networks=100, seed=None, verbose=False, check_rand2=False, transform="none"):
+def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.', atlas_string='aal', density_min=None, density_max=None, density_step=0.01, num_random_networks=100, seed=None, verbose=False, check_rand2=False, transform="none", weight_prefix='dc', add_transpose=False, check_density_distribution=False):
     # Set seed for NumPy random number generation. Use same seed in rep
     np.random.seed(seed)
     
@@ -318,10 +300,15 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
     # Read the correlation matrix for each subject.
     matrix_dict = OrderedDict()
     for matrix_path in matrix_paths:
+        print(f'Processing {os.path.abspath(matrix_path)}')
         subject = os.path.basename(matrix_path).split('.')[0] # Assume file is named <subject ID>.<extension>
         
         matrix = np.loadtxt(matrix_path, dtype=np.float64)
 
+        # If the input matrix is nonsymmetric and needs to be made so.
+        if add_transpose:
+            matrix += matrix.T
+        
         # Remove unwanted rows and columns.
         matrix = matrix[keep_indices, :][:, keep_indices]
 
@@ -367,7 +354,7 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
                 
                 ii_label_num = legend_df.loc[ii, 'number']
                 jj_label_num = legend_df.loc[jj, 'number']
-                column_name = 'dc_'+atlas_string+'_'+str(ii_label_num)+'_'+str(jj_label_num)
+                column_name = f'{weight_prefix}_{atlas_string}_{str(ii_label_num)}_{str(jj_label_num)}'
                 
                 dcor_df.loc[subject, column_name] = dcor
                 dcor_original_df.loc[subject, column_name] = dcor_original
@@ -377,14 +364,15 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
         os.makedirs(out_dir)
 
     # Save the dataframe with the correlation values before and after transformation.
-    out_name = 'cor_'+atlas_string+'_n'+str(matrix.shape[0])+'.csv'
+    out_name = f'{weight_prefix}_{atlas_string}_n{str(matrix.shape[0])}.csv'
     out_path = os.path.join(out_dir, out_name)
     dcor_df.to_csv(out_path)
 
-    out_name = 'raw_cor_'+atlas_string+'_n'+str(matrix_original.shape[0])+'.csv'
-    out_path = os.path.join(out_dir, out_name)
-    dcor_original_df.to_csv(out_path)
-
+    if (not transform is None):
+        out_name = f'raw_{weight_prefix}_{atlas_string}_n{str(matrix.shape[0])}.csv'
+        out_path = os.path.join(out_dir, out_name)
+        dcor_original_df.to_csv(out_path)
+        
     ## Compute graph theory metrics.
     b_auc_dict = OrderedDict() # stores binary network metrics for every subject at each threshold
     w_auc_dict = OrderedDict() # stores weithed network metrics for every subject at each threshold
@@ -409,6 +397,30 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
     if density_min is None:
         N = matrix_dict[matrix_dict.keys()[0]].shape[0]
         density_min = np.round(2.0*np.log(N)/(N-1.0), decimals=2)
+
+    # Calculate distribution of densities.
+    if check_density_distribution:
+        densities = []
+        densities_v1 = []
+        densities_v2 = []
+        for subject, matrix in matrix_dict.items():
+            density = (np.count_nonzero(matrix)/2) / (matrix.shape[0]*(matrix.shape[0]-1)/2) # number of connections / # possible connections
+            densities.append(density)
+
+            if subject.endswith('V1'):
+                densities_v1.append(density)
+            if subject.endswith('V2'):
+                densities_v2.append(density)
+        densities.sort()
+        densities_v1.sort()
+        densities_v2.sort()
+        T_95 = np.percentile(densities, 5)
+        T_95_v1 = np.percentile(densities_v1, 5)
+        T_95_v2 = np.percentile(densities_v2, 5)
+        print(f'5th percentile of densities = {T_95}')
+        print(f'5th percentile of densities (V1) = {T_95_v1}')
+        print(f'5th percentile of densities (V2) = {T_95_v2}')
+        sys.exit()
         
     # If density_max not set, set to a very high value and stop loop when sigma<1.1 for any subject.
     if density_max is None:
@@ -417,7 +429,8 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
         temp_density_max = density_max + density_step
     thresholds = list(np.arange(density_min, temp_density_max, density_step))
     print('Computing metrics over thresholds:', list(thresholds))
-                             
+
+    
     for threshold in thresholds:
         print('Threshold: ', threshold)
         for subject, matrix in matrix_dict.items():
@@ -431,7 +444,14 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
                 w_auc_dict[subject] = deepcopy(metrics_dict_base)
 
             # Get thresholded matrices (weighted and binary versions).
+            ## TEST DENSITY BEFORE AND AFTER THRESHOLDING
+            #density = (np.count_nonzero(matrix)/2) / (matrix.shape[0]*(matrix.shape[0]-1)/2)
+            #print(f'Density before thresholding: {density}')
             b_adj, w_adj = thresholdMatrix(matrix, threshold)
+            #b_density = (np.count_nonzero(b_adj)/2) / (matrix.shape[0]*(matrix.shape[0]-1)/2)
+            #w_density = (np.count_nonzero(w_adj)/2) / (matrix.shape[0]*(matrix.shape[0]-1)/2)
+            #print(f'Density after thresholding (binary network): {b_density}')
+            #print(f'Density after thresholding (weighted network): {w_density}')
 
             ## Generate random networks with the same number of nodes, degree distribution, and (for weighted networks) edge weight distribution.
             if verbose:
@@ -684,11 +704,10 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
 if (__name__ == '__main__'):
     # Create argument parser.
     description = """"""
-    parser = argparse.ArgumentParser(description=description)
+    parser = argparse.ArgumentParser(description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     # Define positional arguments.
-    parser.add_argument('matrix_paths', help='Paths to correlation matrices to select regions from.', nargs='+')
-    
+    parser.add_argument('matrix_paths', help='Paths to correlation matrices to select regions from.', nargs='+')    
     
     # Define optional arguments.
     parser.add_argument('-l', '--legend_path', help='path to legend CSV file')
@@ -703,6 +722,9 @@ if (__name__ == '__main__'):
     parser.add_argument('--density_max', type=float, help='Maximum network density for AUC calculation. Default: 0.80', default=0.80)
     parser.add_argument('--density_step', type=float, help='Network density step size for AUC calculation. Default: 0.01', default=0.01)
     parser.add_argument('--transform', type=str, help='Transformation applied to input correlation values. Must be one of ("none", "abs", "pos", "z", "z_abs", "z_pos")', choices=["none", "abs", "pos", "z", "z_abs", "z_pos"], default="abs")
+    parser.add_argument('--weight_prefix', type=str, default='dc', help='network edge weights will be saved to CSV with columns named <weight_prefix>_<atlas_string>_<ROI 1 number>_<ROI 2 number>')
+    parser.add_argument('--add_transpose', action='store_true', help='before computing metrics, add the transpose of the adjancy matrix. FSL ProbtrackX generates nonsymmetric matrices, in which the number of streamlines seeded in ROI 1 and terminating in ROI 2 will be different from the number of steamlines seeded in ROI 2 and terminating in ROI 1.')
+    parser.add_argument('--check_density_distribution', action='store_true', help='Compute the 5th percentile of network densities across all input matrices.')
 
     # Print help if no args input.
     if (len(sys.argv) == 1):
