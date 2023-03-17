@@ -22,6 +22,8 @@ Scripts that do not have an entry in this list may not work yet.
   * Run `makeThumbs.py -h` for usage.
 * `padNifti.py` - Add zero padding slices/volumes to NIFTI image. Padding can be added to specific sides of specific dimensions.
   * Run `padNifti.py -h` for usage.
+* `pc2da.py` - Convert Canadian postal codes to dissemination area unique identifiers (DAuid). Input a postal code conversion file (https://mdl.library.utoronto.ca/collections/numeric-data/census-canada/postal-code-conversion-file) and return a spreadsheet containing all postal codes and corresponding DAuids. Optionally, input an additional spreadsheet with single column of postal codes, and convert only those postal codes listed.
+  * Run `pc2da.py -h` for usage.
 * `roiStats.py` - Report statistics on size and extent of region of interest clusters in 3D images.
   * Run `roiStats.py -h` for usage.
   * For examples, see `/hpf/largeprojects/smiller/examples/lesion_extent/README.txt` on HPC.
@@ -29,8 +31,8 @@ Scripts that do not have an entry in this list may not work yet.
 
 ## Requirements
 The following software is required. All packages are already installed on HPC and can be activated as described above.
-* Python 3.9
-* Python 2.7 (for some old scripts).
+* Python 3.9 or newer.
+* Python 2.7 (for some of the older scripts).
 * Python packages:
   * numpy
   * scipy
