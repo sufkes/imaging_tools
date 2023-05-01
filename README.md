@@ -58,10 +58,10 @@ The following software is required. All packages are already installed on HPC an
 # Create Python 3.11 environment. 
 conda create --prefix <path to conda environment directory>/py3 python=3.11
 source activate <path to conda environment directory>/py3
-pip install numpy scipy matplotlib pandas nibabel pyminc Pillow opencv-python pydicom bctpy scikit-learn scikit-image torch torchvision torchaudio PyCap
+pip install numpy scipy matplotlib pandas nibabel pyminc pydicom bctpy scikit-learn scikit-image natsort nilearn
 
-# Create Python 2.7 environment
+# Create Python 2.7 environment.
 conda create --prefix <path to conda environment directory>/py2 python=2.7
 source activate <path to conda environment directory>/py2
-pip install numpy scipy matplotlib pandas nibabel pyminc Pillow pydicom pyyaml pycap==1.0.2
+pip install numpy scipy matplotlib pandas nibabel pyminc pydicom natsort
 ```
