@@ -7,7 +7,7 @@ import nibabel as nib
 import numpy as np
 from matplotlib import pyplot as plt
 
-def main(in_path, out_path, mask_path, mask_cmap, mask_alpha, mask_binarize, mask_vmin, num_views, num_major_columns, view_spacing):
+def main(in_path, out_path, cmap, mask_path, mask_cmap, mask_alpha, mask_binarize, mask_vmin, mask_vmax, num_views, num_major_columns, view_spacing):
     # Load image as numpy array.
     img_nii = nib.load(in_path)
     img_array = img_nii.get_fdata()
@@ -72,9 +72,6 @@ def main(in_path, out_path, mask_path, mask_cmap, mask_alpha, mask_binarize, mas
     if view_spacing is None:
         view_spacing = 80//num_views # must be integer
     
-    cmap = 'gray'
-
-
     width_ratios = width_ratios * num_major_columns
     
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, squeeze=False, figsize=figsize, gridspec_kw={'width_ratios': width_ratios}, facecolor='black')
@@ -96,7 +93,7 @@ def main(in_path, out_path, mask_path, mask_cmap, mask_alpha, mask_binarize, mas
             mask_plot_array = mask_array
 
             
-        viewpoint = midpoint - view_spacing*(num_views - 1)/2 + view_spacing*view_index # center of current orhogonal view
+        viewpoint = midpoint - view_spacing*(num_views - 1)/2 + view_spacing*view_index # center of current orthogonal view
         viewpoint = viewpoint.astype(int)
 
         row_index = view_index % nrows
@@ -108,18 +105,14 @@ def main(in_path, out_path, mask_path, mask_cmap, mask_alpha, mask_binarize, mas
         except IndexError:
             pass
         
-
         if mask_path:
             from matplotlib import cm
             mask_cmap_modified = cm.get_cmap(mask_cmap).copy()
             mask_cmap_modified.set_under('k', alpha=0)
-            #axes[row_index, start_col + 0].imshow(np.rot90(mask_plot_array[viewpoint[0],:,:]), cmap=mask_cmap_modified, aspect=aspect_ratios[0], alpha=mask_alpha, vmin=mask_vmin)
-            #axes[row_index, start_col + 1].imshow(np.rot90(mask_plot_array[:,viewpoint[1],:]), cmap=mask_cmap_modified, aspect=aspect_ratios[1], alpha=mask_alpha, vmin=mask_vmin)
-            #axes[row_index, start_col + 2].imshow(np.rot90(mask_plot_array[:,:,viewpoint[2]]), cmap=mask_cmap_modified, aspect=aspect_ratios[2], alpha=mask_alpha, vmin=mask_vmin)
             try:
-                axes[row_index, start_col + 0].imshow(np.rot90(mask_plot_array[viewpoint[0],:,:]), cmap=mask_cmap_modified, aspect=aspect_ratios[0], alpha=mask_alpha, vmin=mask_vmin)
-                axes[row_index, start_col + 1].imshow(np.rot90(mask_plot_array[:,viewpoint[1],:]), cmap=mask_cmap_modified, aspect=aspect_ratios[1], alpha=mask_alpha, vmin=mask_vmin)
-                axes[row_index, start_col + 2].imshow(np.rot90(mask_plot_array[:,:,viewpoint[2]]), cmap=mask_cmap_modified, aspect=aspect_ratios[2], alpha=mask_alpha, vmin=mask_vmin)
+                axes[row_index, start_col + 0].imshow(np.rot90(mask_plot_array[viewpoint[0],:,:]), cmap=mask_cmap_modified, aspect=aspect_ratios[0], alpha=mask_alpha, vmin=mask_vmin, vmax=mask_vmax)
+                axes[row_index, start_col + 1].imshow(np.rot90(mask_plot_array[:,viewpoint[1],:]), cmap=mask_cmap_modified, aspect=aspect_ratios[1], alpha=mask_alpha, vmin=mask_vmin, vmax=mask_vmax)
+                axes[row_index, start_col + 2].imshow(np.rot90(mask_plot_array[:,:,viewpoint[2]]), cmap=mask_cmap_modified, aspect=aspect_ratios[2], alpha=mask_alpha, vmin=mask_vmin, vmax=mask_vmax)
             except IndexError: # Viewpoint could possibly extend outside array; if so, simply plot nothing here.
                 pass
                 
@@ -129,9 +122,6 @@ def main(in_path, out_path, mask_path, mask_cmap, mask_alpha, mask_binarize, mas
         axis.xaxis.set_visible(False)
         axis.yaxis.set_visible(False)
     
-    #out_name = os.path.basename(in_path).split('.nii')[0] + '.png'
-    #out_path = os.path.join(out_dir, out_name)
-    #fig.set_tight_layout(True)
     fig.savefig(out_path, dpi=dpi)
     plt.close()
     
@@ -147,11 +137,13 @@ if (__name__ == '__main__'):
     parser.add_argument('out_path', help='path of output file; must have a compatible image file extension, e.g. ".png".', type=str)
     
     # Define optional arguments.
+    parser.add_argument('--cmap', type=str, default='gray', help='image color map. Must be the name of a Matplotlib Colormap. See https://matplotlib.org/stable/tutorials/colors/colormaps.html for options.')
     parser.add_argument('--mask_path', type=str, help='path to mask NIFTI file; must have same dimensions as IN_PATH; mask is assumed to have same (tranformation matrix?) as main image.')
     parser.add_argument('--mask_cmap', type=str, default='Greens', help='mask overlay color map. Must be the name of a Matplotlib Colormap. See https://matplotlib.org/stable/tutorials/colors/colormaps.html for options.')
     parser.add_argument('--mask_alpha', type=float, default=0.5, help='mask overlay alpha (opacity). Must be value between 0 and 1.')
     parser.add_argument('--mask_binarize', action='store_true', help='binarize mask (set values > 0 to 1; values < 0 to 0.')
     parser.add_argument('--mask_vmin', type=float, help='minimum value to display for mask; values below with will have zero opacity.', default=0.1)
+    parser.add_argument('--mask_vmax', type=float, help='maximum value to display for mask', default=1)
 
     parser.add_argument('--num_views', type=int, help='number of points along a diagonal line on which orthogonal (3-axis) views will be centered', default=6)
     parser.add_argument('--num_major_columns', type=int, help='number of columns of orthogonal views', default=2)
