@@ -203,7 +203,7 @@ If 'function' returns a tuple, only the first value is taken and treated as a me
         metric_mean_normalized = metric_mean/rand_mean
         return metric, metric_mean, metric_mean_normalized, rand_mean # vector, scalar, scalar, scalar.
 
-def computeAuc(auc_dict, out_dir, thresholds, min_thresh=None, max_thresh=None, weighted=False, atlas_string='atlaslabel'):
+def computeAuc(auc_dict, out_dir, thresholds, min_thresh=None, max_thresh=None, weighted=False, atlas_string=None):
     # By default, compute AUC over all thresholds in auc_dict
     if min_thresh is not None:
         thresholds = [t for t in thresholds if t >= min_thresh]
@@ -278,32 +278,38 @@ def fisher(r):
     z = np.arctanh(r)
     return z
 
-def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.', atlas_string='aal', density_min=None, density_max=None, density_step=0.01, num_random_networks=100, seed=None, verbose=False, check_rand2=False, transform="none", weight_prefix='dc', add_transpose=False, check_density_distribution=False):
+def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir=None, atlas_string=None, density_min=None, density_max=None, density_step=0.01, num_random_networks=100, seed=None, verbose=False, check_rand2=False, transform="none", weight_prefix='conn', add_transpose=False, compute_nth_percentile_of_network_density=False):
     # Set seed for NumPy random number generation. Use same seed in rep
     np.random.seed(seed)
-    
-    # Read legend.
-    if legend_path:
-        legend_df = pd.read_csv(legend_path)
-
-    # Remove rows from legend if they do not have 'type'=='gm'.
-    if gm_only:
-        legend_df = legend_df.loc[legend_df['type']=='gm', :]
-    keep_indices = [ii-1 for ii in legend_df['number']]
-
-    legend_df.reset_index(drop=True, inplace=True) # reset index to [0, 1, ..., 63] but keep the 'number' column.
 
     # Initialize a dataframe to store the raw correlation values between each pair of regions that are included, before thresholding.
-    dcor_df = pd.DataFrame(dtype=np.float64) # store the correlation values after applying transforms
-    dcor_original_df = pd.DataFrame(dtype=np.float64) # store the correlation values before applying transforms
+    conn_df = pd.DataFrame(dtype=np.float64) # store the correlation values after applying transforms
+    conn_original_df = pd.DataFrame(dtype=np.float64) # store the correlation values before applying transforms
     
     # Read the correlation matrix for each subject.
     matrix_dict = OrderedDict()
+    legend_parsed = False # set True once the ROI legend has been parsed (or inferred from a connectivity matrix).
     for matrix_path in matrix_paths:
         print(f'Processing {os.path.abspath(matrix_path)}')
         subject = os.path.basename(matrix_path).split('.')[0] # Assume file is named <subject ID>.<extension>
         
         matrix = np.loadtxt(matrix_path, dtype=np.float64)
+
+        if not legend_parsed:
+            # Read legend.
+            if not legend_path is None:
+                legend_df = pd.read_csv(legend_path)
+            else:                
+                legend_df = pd.DataFrame(OrderedDict([('number', range(1, matrix.shape[0]+1))]))
+
+            # Remove rows from legend if they do not have 'type'=='gm'.
+            if gm_only:
+                legend_df = legend_df.loc[legend_df['type']=='gm', :]
+            keep_indices = [ii-1 for ii in legend_df['number']]
+                
+            legend_df.reset_index(drop=True, inplace=True) # reset index to [0, 1, ..., 63] but keep the 'number' column.
+            
+            legend_parsed = True
 
         # If the input matrix is nonsymmetric and needs to be made so.
         if add_transpose:
@@ -319,8 +325,7 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
         # Store a copy of the correlations matrix before applying any transform (e.g. absolute value).
         matrix_original = matrix.copy()
 
-
-        ("none", "abs", "pos", "z", "z_abs", "z_pos")
+        # ("none", "abs", "pos", "z", "z_abs", "z_pos")
         if transform == "none":
             print("Not applying transform to input edge strengths.")
             pass
@@ -349,29 +354,29 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
         # Save the correlation values to a dataframe before and after applying a transform.
         for ii in range(matrix.shape[0]-1):
             for jj in range(ii+1, matrix.shape[0]):
-                dcor = matrix[ii, jj]
-                dcor_original = matrix_original[ii, jj]
+                conn = matrix[ii, jj]
+                conn_original = matrix_original[ii, jj]
                 
                 ii_label_num = legend_df.loc[ii, 'number']
                 jj_label_num = legend_df.loc[jj, 'number']
                 column_name = f'{weight_prefix}_{atlas_string}_{str(ii_label_num)}_{str(jj_label_num)}'
                 
-                dcor_df.loc[subject, column_name] = dcor
-                dcor_original_df.loc[subject, column_name] = dcor_original
+                conn_df.loc[subject, column_name] = conn
+                conn_original_df.loc[subject, column_name] = conn_original
         
     # Create output directory if it does not exist.
-    if not os.path.exists(out_dir):
+    if (out_dir is None) or (not os.path.isdir(out_dir)):
         os.makedirs(out_dir)
 
     # Save the dataframe with the correlation values before and after transformation.
     out_name = f'{weight_prefix}_{atlas_string}_n{str(matrix.shape[0])}.csv'
     out_path = os.path.join(out_dir, out_name)
-    dcor_df.to_csv(out_path)
+    conn_df.to_csv(out_path)
 
     if (not transform is None):
         out_name = f'raw_{weight_prefix}_{atlas_string}_n{str(matrix.shape[0])}.csv'
         out_path = os.path.join(out_dir, out_name)
-        dcor_original_df.to_csv(out_path)
+        conn_original_df.to_csv(out_path)
         
     ## Compute graph theory metrics.
     b_auc_dict = OrderedDict() # stores binary network metrics for every subject at each threshold
@@ -394,32 +399,20 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
 
     ## Define a list of density values to compute AUC over.
     # If density_min not set, set such that average binary degree > 2*log(N)
-    if density_min is None:
-        N = matrix_dict[matrix_dict.keys()[0]].shape[0]
-        density_min = np.round(2.0*np.log(N)/(N-1.0), decimals=2)
+    #if density_min is None:
+    #    N = matrix_dict[list(matrix_dict.keys())[0]].shape[0]
+    #    density_min = np.round(2.0*np.log(N)/(N-1.0), decimals=2)
 
     # Calculate distribution of densities.
-    if check_density_distribution:
+    if not compute_nth_percentile_of_network_density is None:
         densities = []
-        densities_v1 = []
-        densities_v2 = []
         for subject, matrix in matrix_dict.items():
             density = (np.count_nonzero(matrix)/2) / (matrix.shape[0]*(matrix.shape[0]-1)/2) # number of connections / # possible connections
             densities.append(density)
 
-            if subject.endswith('V1'):
-                densities_v1.append(density)
-            if subject.endswith('V2'):
-                densities_v2.append(density)
         densities.sort()
-        densities_v1.sort()
-        densities_v2.sort()
-        T_95 = np.percentile(densities, 5)
-        T_95_v1 = np.percentile(densities_v1, 5)
-        T_95_v2 = np.percentile(densities_v2, 5)
-        print(f'5th percentile of densities = {T_95}')
-        print(f'5th percentile of densities (V1) = {T_95_v1}')
-        print(f'5th percentile of densities (V2) = {T_95_v2}')
+        T_nth_percentile = np.percentile(densities, compute_nth_percentile_of_network_density)
+        print(f'{compute_nth_percentile_of_network_density}th percentile of densities = {T_nth_percentile}')
         sys.exit()
         
     # If density_max not set, set to a very high value and stop loop when sigma<1.1 for any subject.
@@ -427,6 +420,10 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
         temp_density_max = 0.80 + density_step
     else:
         temp_density_max = density_max + density_step
+
+    if density_min >= temp_density_max:
+        msg = f'Minimum density ({density_min}) must be less than maximum density ({density_max}).'
+        raise Exception(msg)
     thresholds = list(np.arange(density_min, temp_density_max, density_step))
     print('Computing metrics over thresholds:', list(thresholds))
 
@@ -437,6 +434,7 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
             if verbose:
                 print('\nSubject: '+subject)
 
+
             # If subject not in the metric dictionary, add them.
             if subject not in b_auc_dict:
                 b_auc_dict[subject] = deepcopy(metrics_dict_base)
@@ -444,14 +442,7 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
                 w_auc_dict[subject] = deepcopy(metrics_dict_base)
 
             # Get thresholded matrices (weighted and binary versions).
-            ## TEST DENSITY BEFORE AND AFTER THRESHOLDING
-            #density = (np.count_nonzero(matrix)/2) / (matrix.shape[0]*(matrix.shape[0]-1)/2)
-            #print(f'Density before thresholding: {density}')
             b_adj, w_adj = thresholdMatrix(matrix, threshold)
-            #b_density = (np.count_nonzero(b_adj)/2) / (matrix.shape[0]*(matrix.shape[0]-1)/2)
-            #w_density = (np.count_nonzero(w_adj)/2) / (matrix.shape[0]*(matrix.shape[0]-1)/2)
-            #print(f'Density after thresholding (binary network): {b_density}')
-            #print(f'Density after thresholding (weighted network): {w_density}')
 
             ## Generate random networks with the same number of nodes, degree distribution, and (for weighted networks) edge weight distribution.
             if verbose:
@@ -465,36 +456,22 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
             if verbose:
                 print('Calculating betweenness (binary).')
             betweenness_binary = bct.centrality.betweenness_bin(b_adj)
-            #out_name = subject + '_betweenness_binary.npy'
-            #saveMetric(betweenness_binary, full_out_dir, out_name)
             b_auc_dict[subject]['betweenness'][threshold] = betweenness_binary
             
             if verbose:
                 print('Calculating betweenness (weighted).')
             betweenness_weighted = bct.centrality.betweenness_wei(w_adj)
-            #out_name = subject + '_betweenness_weighted.npy'
-            #saveMetric(betweenness_weighted, full_out_dir, out_name)
             w_auc_dict[subject]['betweenness'][threshold] = betweenness_weighted
 
             ## Characteristic path length
             if verbose:
                 print('Calculating characteristic path length (binary).')
             #charpath_binary, lambda_binary, charpath_rand_mean_binary = normalizer(b_adj, b_rand_list, myCharPathBin) # Set disconnected nodes distance to zero.
-            charpath_binary, lambda_binary, charpath_rand_mean_binary = normalizer(b_adj, b_rand_list, myCharPathBin, function_kwargs={'custom_algorithm':True}) # Harmonic mean
+            charpath_binary, lambda_binary, charpath_rand_mean_binary = normalizer(b_adj, b_rand_list, myCharPathBin, function_kwargs={'custom_algorithm':True}) # Use harmonic mean mean approach
 
-            #out_name = subject + '_charpath_binary.npy'
-            #saveMetric(lambda_binary, full_out_dir, out_name)
             b_auc_dict[subject]['charpath'][threshold] = charpath_binary
             b_auc_dict[subject]['lambda'][threshold] = lambda_binary
             b_auc_dict[subject]['charpath_rand_mean'][threshold] = charpath_rand_mean_binary
-            #out_name = subject + '_charpath_efficiency_binary.npy'
-            #saveMetric(efficiency_binary, full_out_dir, out_name)
-            #out_name = subject + '_charpath_ecc_binary.npy'
-            #saveMetric(ecc_binary, full_out_dir, out_name)
-            #out_name = subject + '_charpath_radius_binary.npy'
-            #saveMetric(radius_binary, full_out_dir, out_name)
-            #out_name = subject + '_charpath_diameter_binary.npy'
-            #saveMetric(diameter_binary, full_out_dir, out_name)
             if verbose:
                 print('Path length for real network (binary): '+str(charpath_binary))
             if verbose:
@@ -503,23 +480,13 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
             if verbose:
                 print('Calculating characteristic path length (weighted).')
             #charpath_weighted, lambda_weighted, charpath_rand_mean_weighted = normalizer(w_adj, w_rand_list, myCharPathWei) # Set disconnected nodes distance to zero.
-            charpath_weighted, lambda_weighted, charpath_rand_mean_weighted = normalizer(w_adj, w_rand_list, myCharPathWei, function_kwargs={'custom_algorithm':True}) # Harmonic mean
+            charpath_weighted, lambda_weighted, charpath_rand_mean_weighted = normalizer(w_adj, w_rand_list, myCharPathWei, function_kwargs={'custom_algorithm':True}) # Use harmonic mean approach
             if check_rand2:
                 _, lambda_weighted_rand2, _ = normalizer(w_adj, w_rand2_list, myCharPathWei, function_kwargs={'custom_algorithm':True}) # Harmonic mean
 
-            #out_name = subject + '_charpath_weighted.npy'
-            #saveMetric(lambda_weighted, full_out_dir, out_name)
             w_auc_dict[subject]['charpath'][threshold] = charpath_weighted
             w_auc_dict[subject]['lambda'][threshold] = lambda_binary
             w_auc_dict[subject]['charpath_rand_mean'][threshold] = charpath_rand_mean_weighted
-            #out_name = subject + '_charpath_efficiency_weighted.npy'
-            #saveMetric(efficiency_weighted, full_out_dir, out_name)
-            #out_name = subject + '_charpath_ecc_weighted.npy'
-            #saveMetric(ecc_weighted, full_out_dir, out_name)
-            #out_name = subject + '_charpath_radius_weighted.npy'
-            #saveMetric(radius_weighted, full_out_dir, out_name)
-            #out_name = subject + '_charpath_diameter_weighted.npy'
-            #saveMetric(diameter_weighted, full_out_dir, out_name)
             if verbose:
                 print('Path length for real network (weighted): '+str(charpath_weighted))
             if verbose:
@@ -531,31 +498,22 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
             ## Clustering coefficient
             if verbose:
                 print('Calculating clustering coefficient (binary).')
-            #clustering_coefficient_binary = bct.clustering.clustering_coef_bu(b_adj)
             clustering_coefficient_binary, global_clustering_coefficient_binary, gamma_binary, global_clustering_coefficient_rand_mean_binary = normalizer(b_adj, b_rand_list, bct.clustering.clustering_coef_bu, scalar=False)            
-            #out_name = subject + '_clustering_coefficient_binary.npy'
-            #saveMetric(clustering_coefficient_binary, full_out_dir, out_name)
             b_auc_dict[subject]['clustering_coefficient'][threshold] = clustering_coefficient_binary
             b_auc_dict[subject]['global_clustering_coefficient'][threshold] = global_clustering_coefficient_binary
             b_auc_dict[subject]['gamma'][threshold] = gamma_binary
             b_auc_dict[subject]['global_clustering_coefficient_rand_mean'][threshold] = global_clustering_coefficient_rand_mean_binary
-            #if verbose: print 'Nodal clustering coefficient (binary):', clustering_coefficient_binary
             if verbose:
                 print('Gamma (binary):', gamma_binary)
-
             if verbose:
                 print('Calculating clustering coefficient (weighted).')
-            #clustering_coefficient_weighted = bct.clustering.clustering_coef_wu(w_adj)
             clustering_coefficient_weighted, global_clustering_coefficient_weighted, gamma_weighted, global_clustering_coefficient_rand_mean_weighted = normalizer(w_adj, w_rand_list, bct.clustering.clustering_coef_wu, scalar=False)
             if check_rand2:
                 _, _, gamma_weighted_rand2, _ = normalizer(w_adj, w_rand2_list, bct.clustering.clustering_coef_wu, scalar=False)
-            #out_name = subject + '_clustering_coefficient_weighted.npy'
-            #saveMetric(clustering_coefficient_weighted, full_out_dir, out_name)
             w_auc_dict[subject]['clustering_coefficient'][threshold] = clustering_coefficient_weighted
             w_auc_dict[subject]['global_clustering_coefficient'][threshold] = global_clustering_coefficient_weighted
             w_auc_dict[subject]['gamma'][threshold] = gamma_weighted
             w_auc_dict[subject]['global_clustering_coefficient_rand_mean'][threshold] = global_clustering_coefficient_rand_mean_weighted
-            #if verbose: print 'Nodal clustering coefficient (weighted):', clustering_coefficient_weighted
             if verbose: print('Gamma (weighted):', gamma_weighted)
             if check_rand2:
                 if verbose: print('Gamma (weighted) (rand2):', gamma_weighted_rand2)
@@ -572,40 +530,28 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
             ## Degree
             if verbose: print('Calculating degree (binary).')
             degree_binary = bct.degree.degrees_und(b_adj)
-            #out_name = subject + '_degree_binary.npy'
-            #saveMetric(degree_binary, full_out_dir, out_name)
             b_auc_dict[subject]['degree'][threshold] = degree_binary
 
             if verbose: print('Calculating degree (weighted).')
             degree_weighted = bct.degree.strengths_und(w_adj)
-            #out_name = subject + '_degree_weighted.npy'
-            #saveMetric(degree_weighted, full_out_dir, out_name)
             w_auc_dict[subject]['degree'][threshold] = degree_weighted
             
             ## Global efficiency
             if verbose: print('Calculating global efficiency (binary).')
             global_efficiency_binary = bct.distance.efficiency_bin(b_adj, local=False)
-            #out_name = subject + '_global_efficiency_binary.npy'
-            #saveMetric(global_efficiency_binary, full_out_dir, out_name)
             b_auc_dict[subject]['global_efficiency'][threshold] = global_efficiency_binary
 
             if verbose: print('Calculating global efficiency (weighted).')
             global_efficiency_weighted = bct.distance.efficiency_wei(w_adj, local=False)
-            #out_name = subject + '_global_efficiency_weighted.npy'
-            #saveMetric(global_efficiency_weighted, full_out_dir, out_name)
             w_auc_dict[subject]['global_efficiency'][threshold] = global_efficiency_weighted
             
             ## Local efficiency
             if verbose: print('Calculating local efficiency (binary).')
             local_efficiency_binary = bct.distance.efficiency_bin(b_adj, local=True)
-            #out_name = subject + '_local_efficiency_binary.npy'
-            #saveMetric(local_efficiency_binary, full_out_dir, out_name)
             b_auc_dict[subject]['local_efficiency'][threshold] = local_efficiency_binary
             
             if verbose: print('Calculating local efficiency (weighted).')
             local_efficiency_weighted = bct.distance.efficiency_wei(w_adj, local=True)
-            #out_name = subject + '_local_efficiency_weighted.npy'
-            #saveMetric(local_efficiency_weighted, full_out_dir, out_name)
             w_auc_dict[subject]['local_efficiency'][threshold] = local_efficiency_weighted
 
             ## Network local efficiency
@@ -615,45 +561,31 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
             
             ## Rich club
             #R_binary, Nk_binary, Ek_binary = bct.core.rich_club_bu(b_adj)
-            #out_name = subject + '_rich_club_R_binary.npy'
-            #saveMetric(R_binary, full_out_dir, out_name)
-            #out_name = subject + '_rich_club_Nk_binary.npy'
-            #saveMetric(Nk_binary, full_out_dir, out_name)
-            #out_name = subject + '_rich_club_Ek_binary.npy'
-            #saveMetric(Ek_binary, full_out_dir, out_name)
 
             #Rw_weighted = bct.core.rich_club_wu(w_adj)
-            #out_name = subject + '_rich_club_Rw_weighted.npy'
-            #saveMetric(Rw_weighted, full_out_dir, out_name)
             
             ## Transitivity
             if verbose: print('Calculating transitivity (binary).')
             transitivity_binary = bct.clustering.transitivity_bu(b_adj)
-            #out_name = subject + '_transitivity_binary.npy'
-            #saveMetric(transitivity_binary, full_out_dir, out_name)
             b_auc_dict[subject]['transitivity'][threshold] = transitivity_binary
 
             if verbose: print('Calculating transitivity (weighted).')
             transitivity_weighted = bct.clustering.transitivity_wu(w_adj)
-            #out_name = subject + '_transitivity_weighted.npy'
-            #saveMetric(transitivity_weighted, full_out_dir, out_name)
             w_auc_dict[subject]['transitivity'][threshold] = transitivity_weighted
 
-            ## Modularity
+            ## Modularity # NOTE: Algorithm in BCT appears broke. For now, save NaN if it returns error.
             if verbose: print('Calculating modularity (binary).')
-            ci_binary, q_binary = bct.modularity.modularity_und(b_adj)
-            #out_name = subject + '_modularity_ci_binary.npy'
-            #saveMetric(ci_binary, full_out_dir, out_name)
-            #out_name = subject + '_modularity_q_binary.npy'
-            #saveMetric(q_binary, full_out_dir, out_name)
+            try:
+                ci_binary, q_binary = bct.modularity.modularity_und(b_adj)
+            except:
+                ci_binary, q_binary = (np.nan, np.nan)
             b_auc_dict[subject]['modularity'][threshold] = q_binary
 
             if verbose: print('Calculating modularity (weighted).')
-            ci_weighted, q_weighted = bct.modularity.modularity_und(w_adj)
-            #out_name = subject + '_modularity_ci_weighted.npy'
-            #saveMetric(ci_weighted, full_out_dir, out_name)
-            #out_name = subject + '_modularity_q_weighted.npy'
-            #saveMetric(q_weighted, full_out_dir, out_name)
+            try:
+                ci_weighted, q_weighted = bct.modularity.modularity_und(w_adj)
+            except:
+                ci_weighted, q_weighted = (np.nan, np.nan)
             w_auc_dict[subject]['modularity'][threshold] = q_weighted
 
         #### Check whether this density threshold should be used as an endpoint in the AUC calculation.
@@ -695,7 +627,7 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir='.
 #    computeAuc(**b_auc_args)
 #    computeAuc(**w_auc_args)
 
-    ## Compute the AUC for each metric.
+    ## Compute the AUC for each metric, and save all metrics (density-specific and AUC) to CSV.
     computeAuc(b_auc_dict, out_dir, thresholds, weighted=False, atlas_string=atlas_string)
     computeAuc(w_auc_dict, out_dir, thresholds, weighted=True, atlas_string=atlas_string)
     
@@ -710,21 +642,21 @@ if (__name__ == '__main__'):
     parser.add_argument('matrix_paths', help='Paths to correlation matrices to select regions from.', nargs='+')    
     
     # Define optional arguments.
-    parser.add_argument('-l', '--legend_path', help='path to legend CSV file')
-    parser.add_argument('-a', '--atlas_string', help='string denoting which atlas was used')
-    parser.add_argument('-g', '--gm_only', help="Keep only grey-matter regions, as indicated in legend (keep only legend['type']=='gm' rows).", action='store_true')
-    parser.add_argument('-o', '--out_dir', help='directory to save matrices to', type=str)
+    parser.add_argument('-l', '--legend_path', help='path to legend CSV file (not required).')
+    parser.add_argument('-a', '--atlas_string', help='string denoting which atlas was used. Useful if you have connectivity matrices derived from multiple node parcellations, and want to automatically name files and column headers based on the name of the parcellation.', default='roi')
+    parser.add_argument('-g', '--gm_only', help="Keep only grey-matter regions. To use this option, you must input a legend CSV containing a column named 'type'; only rows that have type='gm' will be kept. This may be useful if you are using a parcellation which includes non-grey-matter regions, which you want to exclude.", action='store_true')
+    parser.add_argument('-o', '--out_dir', help='directory to save matrices to', type=str, default='.')
     parser.add_argument('-n', '--num_random_networks', help='number of random networks to compare real network to when obtaining normalized metrics (e.g. normalized characteristic path and clustering coefficient). Default = 100', type=int, default=100)
     parser.add_argument('-v', '--verbose', help='print lots of information.', action='store_true')
     parser.add_argument('-s', '--seed', type=int, help='seed (int) for random number generation, used in construction of randomized networks. Set to the same value between runs to obtain the same set of randomized ')
     parser.add_argument('-r', '--check_rand2', action='store_true', help='REMOVE THIS TESTING OPTION')
-    parser.add_argument('--density_min', type=float, help='Minimum network density for AUC calculation. Default: 2*log(N)/(N-1) rounded to two decimal places')
+    parser.add_argument('--density_min', type=float, help='Minimum network density for AUC calculation.', default=0.01)
     parser.add_argument('--density_max', type=float, help='Maximum network density for AUC calculation. Default: 0.80', default=0.80)
     parser.add_argument('--density_step', type=float, help='Network density step size for AUC calculation. Default: 0.01', default=0.01)
-    parser.add_argument('--transform', type=str, help='Transformation applied to input correlation values. Must be one of ("none", "abs", "pos", "z", "z_abs", "z_pos")', choices=["none", "abs", "pos", "z", "z_abs", "z_pos"], default="abs")
-    parser.add_argument('--weight_prefix', type=str, default='dc', help='network edge weights will be saved to CSV with columns named <weight_prefix>_<atlas_string>_<ROI 1 number>_<ROI 2 number>')
+    parser.add_argument('--transform', type=str, help='Transformation applied to input correlation values. Must be one of ("none", "abs", "pos", "z", "z_abs", "z_pos"). none: no transformation, abs: take absolute value of correlations, pos: set negative corrrelations to zero, z: Fisher z-transform correlations, z_abs: Fisher z-transform absolute values of the correlations, z_pos: set negative correlations to zero, then Fisher z-transform ', choices=["none", "abs", "pos", "z", "z_abs", "z_pos"], default="none")
+    parser.add_argument('--weight_prefix', type=str, default='conn', help='network edge weights will be saved to CSV with columns named <weight_prefix>_<atlas_string>_<ROI 1 number>_<ROI 2 number>')
     parser.add_argument('--add_transpose', action='store_true', help='before computing metrics, add the transpose of the adjancy matrix. FSL ProbtrackX generates nonsymmetric matrices, in which the number of streamlines seeded in ROI 1 and terminating in ROI 2 will be different from the number of steamlines seeded in ROI 2 and terminating in ROI 1.')
-    parser.add_argument('--check_density_distribution', action='store_true', help='Compute the 5th percentile of network densities across all input matrices.')
+    parser.add_argument('--compute_nth_percentile_of_network_density', type=float, help='Compute the nth percentile of network densities across all input matrices, and quit without computing metrics. Use this mode to help choose a maximum density threshold. Pass the desired percentile (e.g. 95) in this argument.', default=None)
 
     # Print help if no args input.
     if (len(sys.argv) == 1):
