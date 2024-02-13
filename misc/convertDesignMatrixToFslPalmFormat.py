@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import shutil
 import sys
 import argparse
 import warnings
@@ -58,6 +59,13 @@ def main(design_matrix_paths, contrast_matrix_paths, contrast_has_row_column_nam
 
     # Save with PALM formatting requirements.
     design_df.to_csv(design_matrix_paths[1], header=False, index=False, encoding='ascii', lineterminator='\n')
+
+    # Save copy of original design matrix for future reference.
+    if design_matrix_paths[1].endswith('.csv'):
+        copy_of_original_path = f'{design_matrix_paths[1][:-4]}-with_header_before_modification_for_palm.csv'
+    else:
+        copy_of_original_path = f'{design_matrix_paths[1]}-with_header_before_modification_for_palm.csv'
+    shutil.copy2(design_matrix_paths[0], copy_of_original_path)
 
     ## Process the contrast matrix for input to PALM.
     if contrast_matrix_paths is not None:

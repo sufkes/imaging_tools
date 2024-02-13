@@ -10,7 +10,9 @@ def main():
 if (__name__ == '__main__'):
     # Create argument parser.
     description = """"""
-    parser = argparse.ArgumentParser(description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    class formatter_class(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
+        pass
+    parser = argparse.ArgumentParser(description=description, formatter_class=formatter_class)
     
     # Define positional arguments.
 #    parser.add_argument("", help="")

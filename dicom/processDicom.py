@@ -288,7 +288,7 @@ processDicom.py /path/to/in/dir/ /path/to/out/dir/ -r
     parser.add_argument("-i", "--visit_id", help="Visit ID to append to Subject ID in Study directory name. [Default: None]", type=str)
     parser.add_argument("-o", "--omit_study_uid", help="Do not include StudyInstanceUID in the Study directory name.", action="store_true")
     parser.add_argument("-t", "--omit_series_uid", help="Do not include SeriesInstanceUID in the series directory name.", action="store_true")
-    parser.add_argument("-s", "--substitute_tag", help="Use alternate tags in script. E.g. '--switch_tag 0008,103e 0018,1030' will treat ProtocolName as SeriesDescription. Re-enter flag for each substitution. Useful if, e.g., PatientName is empty, but PatientID stores the Subject ID.", nargs=2, action="append", type=str, metavar=('old_tag', 'new_tag'))
+    parser.add_argument("-s", "--substitute_tag", help="Use alternate tags in script. E.g. '--substitute_tag 0008,103e 0018,1030' will treat ProtocolName as SeriesDescription. Re-enter flag for each substitution. Useful if, e.g., PatientName is empty, but PatientID stores the Subject ID.", nargs=2, action="append", type=str, metavar=('old_tag', 'new_tag'))
     parser.add_argument("-n", "--subject_id", help="Custom Subject ID to be used in Study directory name. By default, the PatientName dicom tag (0010,0010) is used.", type=str)
     parser.add_argument("-d", "--study_date", help="Custom Study Date to be used in Study directory name. By default, the StudyDate dicom tag (0008,0020) is used.", type=str)
     parser.add_argument("-f", "--rename_file", help="Rename file according to it's InstanceNumber tag and append '.dcm'. By default, only append '.dcm'.", action='store_true')
