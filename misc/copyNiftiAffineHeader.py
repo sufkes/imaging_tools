@@ -43,7 +43,7 @@ if (__name__ == '__main__'):
     parser.add_argument("to_image_path", type=str, help='path to NIFTI file whose affine or header will be overwritten.')
     
     # Define optional arguments.
-    parser.add_argument("-o", "--out_path", help="new path of image whose affine or header was overwritten. If unspecified, the image is modified in place.", type=str)
+    parser.add_argument("-o", "--out_path", help="save image whose header was modified to a new path, and leave the original image unchanged", type=str)
     parser.add_argument("-a", "--affine", action='store_true', help='copy affine')
     parser.add_argument("-d", "--header", action='store_true', help='copy header')    
 
