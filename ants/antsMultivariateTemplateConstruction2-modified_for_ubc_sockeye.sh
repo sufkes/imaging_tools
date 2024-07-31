@@ -44,7 +44,8 @@ PEXEC=${ANTSPATH}/ANTSpexec.sh
 SGE=${ANTSPATH}/waitForSGEQJobs.pl
 #>>>> Modified to run on UBC Sockeye cluster
 #PBS=${ANTSPATH}/waitForPBSQJobs.pl
-PBS='/arc/project/st-smiller6-1/tools/imaging_tools/ants/waitForPBSQJobs-modified_for_ubc_sockeye.pl'
+#PBS='/arc/project/st-smiller6-1/tools/imaging_tools/ants/waitForPBSQJobs-modified_for_ubc_sockeye.pl' # before move to Apptainer
+PBS='/opt/imaging_tools/ants/waitForPBSQJobs-modified_for_ubc_sockeye.pl'
 #<<<<
 XGRID=${ANTSPATH}/waitForXGridJobs.pl
 SLURM=${ANTSPATH}/waitForSlurmJobs.pl
@@ -1092,7 +1093,10 @@ if [[ "$RIGID" -eq 1 ]];
             jobIDs="$jobIDs $id"
         elif [[ $DOQSUB -eq 5 ]];
             then
-            id=`sbatch --job-name=antsrigid --export=ANTSPATH=$ANTSPATH $QSUBOPTS --nodes=1 --cpus-per-task=1 --time=${WALLTIME} --mem=${MEMORY} $qscript | rev | cut -f1 -d\ | rev`
+	    #>>>> Modified to run on UBC Sockeye cluster
+            #id=`sbatch --job-name=antsrigid --export=ANTSPATH=$ANTSPATH $QSUBOPTS --nodes=1 --cpus-per-task=1 --time=${WALLTIME} --mem=${MEMORY} $qscript | rev | cut -f1 -d\ | rev`
+	    id=`sbatch --account="$allocation_name" --parsable --job-name=antsrigid --export=ANTSPATH=$ANTSPATH $QSUBOPTS --nodes=1 --cpus-per-task=1 --time=${WALLTIME} --mem=${MEMORY} $qscript`
+	    #<<<<
             jobIDs="$jobIDs $id"
             sleep 0.5
         elif [[ $DOQSUB -eq 0 ]];
@@ -1454,7 +1458,10 @@ while [[ $i -lt ${ITERATIONLIMIT} ]];
             echo '#!/bin/sh' > $qscript
             echo -e "$SCRIPTPREPEND" >> $qscript
             echo -e "$exe" >> $qscript
-            id=`sbatch --job-name=antsdef${i} --export=ANTSPATH=$ANTSPATH --nodes=1 --cpus-per-task=1 --time=${WALLTIME} --mem=${MEMORY} $QSUBOPTS $qscript | rev | cut -f1 -d\ | rev`
+	    #>>>> Modified to run on UBC Sockeye cluster
+            #id=`sbatch --job-name=antsdef${i} --export=ANTSPATH=$ANTSPATH --nodes=1 --cpus-per-task=1 --time=${WALLTIME} --mem=${MEMORY} $QSUBOPTS $qscript | rev | cut -f1 -d\ | rev`
+	    id=`sbatch --account="$allocation_name" --parsable --job-name=antsdef${i} --export=ANTSPATH=$ANTSPATH --nodes=1 --cpus-per-task=1 --time=${WALLTIME} --mem=${MEMORY} $QSUBOPTS $qscript`
+	    #<<<<
             jobIDs="$jobIDs $id"
             sleep 0.5
         elif [[ $DOQSUB -eq 0 ]];

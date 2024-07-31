@@ -25,8 +25,8 @@ if (__name__ == '__main__'):
     parser = argparse.ArgumentParser(description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     # Define positional arguments.
-    parser.add_argument("from_image_path", type=str, help='path to NIFTI file whose affine or header will be copied')
-    parser.add_argument("to_image_path", type=str, help='path to NIFTI file whose affine or header will be overwritten.')
+    parser.add_argument("from_image_path", type=str, help='path to NIFTI file whose qform and sform will be copied')
+    parser.add_argument("to_image_path", type=str, help='path to NIFTI file whose qform and sform will be overwritten.')
     parser.add_argument("out_path", help="output path of NIFTI file with modified sform and qform", type=str)
 
     # Define optional arguments.
