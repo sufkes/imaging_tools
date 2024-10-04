@@ -44,8 +44,7 @@ PEXEC=${ANTSPATH}/ANTSpexec.sh
 SGE=${ANTSPATH}/waitForSGEQJobs.pl
 #>>>> Modified to run on UBC Sockeye cluster
 #PBS=${ANTSPATH}/waitForPBSQJobs.pl
-#PBS='/arc/project/st-smiller6-1/tools/imaging_tools/ants/waitForPBSQJobs-modified_for_ubc_sockeye.pl' # before move to Apptainer
-PBS='/opt/imaging_tools/ants/waitForPBSQJobs-modified_for_ubc_sockeye.pl'
+PBS='/arc/project/st-smiller6-1/tools/imaging_tools/ants/waitForPBSQJobs-modified_for_ubc_sockeye.pl'
 #<<<<
 XGRID=${ANTSPATH}/waitForXGridJobs.pl
 SLURM=${ANTSPATH}/waitForSlurmJobs.pl
