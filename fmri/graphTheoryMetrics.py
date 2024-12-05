@@ -271,6 +271,7 @@ def computeAuc(auc_dict, out_dir, thresholds, min_thresh=None, max_thresh=None, 
         os.makedirs(out_dir)
     out_name = bw_string+'_auc_'+'{:.4f}-{:.4f}'.format(thresholds[0], thresholds[-1]) + '.csv'
     out_path = os.path.join(out_dir, out_name)
+    auc_df.index.name = 'subject'
     auc_df.to_csv(out_path)
     
 
@@ -371,11 +372,13 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir=No
     # Save the dataframe with the correlation values before and after transformation.
     out_name = f'{weight_prefix}_{atlas_string}_n{str(matrix.shape[0])}.csv'
     out_path = os.path.join(out_dir, out_name)
+    conn_df.index.name = 'subject'
     conn_df.to_csv(out_path)
 
     if (not transform is None):
         out_name = f'raw_{weight_prefix}_{atlas_string}_n{str(matrix.shape[0])}.csv'
         out_path = os.path.join(out_dir, out_name)
+        conn_original_df.index.name = 'subject'
         conn_original_df.to_csv(out_path)
         
     ## Compute graph theory metrics.
@@ -414,20 +417,16 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir=No
         T_nth_percentile = np.percentile(densities, compute_nth_percentile_of_network_density)
         print(f'{compute_nth_percentile_of_network_density}th percentile of densities = {T_nth_percentile}')
         sys.exit()
-        
-    # If density_max not set, set to a very high value and stop loop when sigma<1.1 for any subject.
-    if density_max is None:
-        temp_density_max = 0.80 + density_step
-    else:
-        temp_density_max = density_max + density_step
 
-    if density_min >= temp_density_max:
+    # Determine the density threshold values.
+    if density_min >= density_max:
         msg = f'Minimum density ({density_min}) must be less than maximum density ({density_max}).'
         raise Exception(msg)
-    thresholds = list(np.arange(density_min, temp_density_max, density_step))
+    num_thresholds = int(np.round( (density_max-density_min)/density_step ) + 1)
+    thresholds = list(np.linspace(density_min, density_max, num=num_thresholds, endpoint=True)) # numpy.arange gives inconsistent results.
     print('Computing metrics over thresholds:', list(thresholds))
 
-    
+    # Compute metrics at each threshold
     for threshold in thresholds:
         print('Threshold: ', threshold)
         for subject, matrix in matrix_dict.items():
@@ -538,20 +537,24 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir=No
             
             ## Global efficiency
             if verbose: print('Calculating global efficiency (binary).')
-            global_efficiency_binary = bct.distance.efficiency_bin(b_adj, local=False)
+            #global_efficiency_binary = bct.distance.efficiency_bin(b_adj, local=False) # Function moved
+            global_efficiency_binary = bct.efficiency_bin(b_adj, local=False)
             b_auc_dict[subject]['global_efficiency'][threshold] = global_efficiency_binary
 
             if verbose: print('Calculating global efficiency (weighted).')
-            global_efficiency_weighted = bct.distance.efficiency_wei(w_adj, local=False)
+            #global_efficiency_weighted = bct.distance.efficiency_wei(w_adj, local=False) # Function moved
+            global_efficiency_weighted = bct.efficiency_wei(w_adj, local=False)
             w_auc_dict[subject]['global_efficiency'][threshold] = global_efficiency_weighted
             
             ## Local efficiency
             if verbose: print('Calculating local efficiency (binary).')
-            local_efficiency_binary = bct.distance.efficiency_bin(b_adj, local=True)
+            #local_efficiency_binary = bct.distance.efficiency_bin(b_adj, local=True) # Function moved
+            local_efficiency_binary = bct.efficiency_bin(b_adj, local=True)
             b_auc_dict[subject]['local_efficiency'][threshold] = local_efficiency_binary
             
             if verbose: print('Calculating local efficiency (weighted).')
-            local_efficiency_weighted = bct.distance.efficiency_wei(w_adj, local=True)
+            #local_efficiency_weighted = bct.distance.efficiency_wei(w_adj, local=True) # Function moved
+            local_efficiency_weighted = bct.efficiency_wei(w_adj, local=True)
             w_auc_dict[subject]['local_efficiency'][threshold] = local_efficiency_weighted
 
             ## Network local efficiency
@@ -573,7 +576,7 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir=No
             transitivity_weighted = bct.clustering.transitivity_wu(w_adj)
             w_auc_dict[subject]['transitivity'][threshold] = transitivity_weighted
 
-            ## Modularity # NOTE: Algorithm in BCT appears broke. For now, save NaN if it returns error.
+            ## Modularity # NOTE: Algorithm in BCT appears broken. For now, save NaN if it returns error.
             if verbose: print('Calculating modularity (binary).')
             try:
                 ci_binary, q_binary = bct.modularity.modularity_und(b_adj)
@@ -635,7 +638,7 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir=No
     
 if (__name__ == '__main__'):
     # Create argument parser.
-    description = """"""
+    description = """Compute network metrics for input connectivity matrices."""
     parser = argparse.ArgumentParser(description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     # Define positional arguments.
@@ -654,7 +657,7 @@ if (__name__ == '__main__'):
     parser.add_argument('--density_max', type=float, help='Maximum network density for AUC calculation. Default: 0.80', default=0.80)
     parser.add_argument('--density_step', type=float, help='Network density step size for AUC calculation. Default: 0.01', default=0.01)
     parser.add_argument('--transform', type=str, help='Transformation applied to input correlation values. Must be one of ("none", "abs", "pos", "z", "z_abs", "z_pos"). none: no transformation, abs: take absolute value of correlations, pos: set negative corrrelations to zero, z: Fisher z-transform correlations, z_abs: Fisher z-transform absolute values of the correlations, z_pos: set negative correlations to zero, then Fisher z-transform ', choices=["none", "abs", "pos", "z", "z_abs", "z_pos"], default="none")
-    parser.add_argument('--weight_prefix', type=str, default='conn', help='network edge weights will be saved to CSV with columns named <weight_prefix>_<atlas_string>_<ROI 1 number>_<ROI 2 number>')
+    parser.add_argument('--weight_prefix', type=str, default='con', help='network edge weights will be saved to CSV with columns named <weight_prefix>_<atlas_string>_<ROI 1 number>_<ROI 2 number>')
     parser.add_argument('--add_transpose', action='store_true', help='before computing metrics, add the transpose of the adjancy matrix. FSL ProbtrackX generates nonsymmetric matrices, in which the number of streamlines seeded in ROI 1 and terminating in ROI 2 will be different from the number of steamlines seeded in ROI 2 and terminating in ROI 1.')
     parser.add_argument('--compute_nth_percentile_of_network_density', type=float, help='Compute the nth percentile of network densities across all input matrices, and quit without computing metrics. Use this mode to help choose a maximum density threshold. Pass the desired percentile (e.g. 95) in this argument.', default=None)
 
