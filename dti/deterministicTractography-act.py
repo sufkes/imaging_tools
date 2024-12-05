@@ -5,6 +5,7 @@ import sys
 import argparse
 
 import numpy as np
+import nibabel as nib
 
 from dipy.core.gradients import gradient_table
 from dipy.data import get_fnames, default_sphere
@@ -62,6 +63,9 @@ def main(dmri_path, bval_path, bvec_path, out_trk_path, roi_path, out_network_ma
 
     # Generate streamlines object.
     streamlines = Streamlines(streamlines_generator)
+
+    # Remove streamlines of length 1 or less, since the connectivity matrix calculator will throw an error.
+    streamlines = [streamline for streamline in streamlines if len(streamline)>1]
 
     # Save TRK file for current ROI.
     print('Saving tractogram')
