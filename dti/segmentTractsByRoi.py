@@ -16,17 +16,19 @@ import nibabel as nib
 import numpy as np
 
 class Metric(object):
-    def __init__(self, in_metric_path, out_metric_matrix_path, num_rois):
+    def __init__(self, in_metric_path, out_metric_mean_matrix_path, out_metric_std_matrix_path, num_rois):
         metric_nii = nib.load(in_metric_path)
         self.in_metric_path = in_metric_path
-        self.out_metric_matrix_path = out_metric_matrix_path
+        self.out_metric_mean_matrix_path = out_metric_mean_matrix_path
+        self.out_metric_std_matrix_path = out_metric_std_matrix_path
         self.nii = metric_nii
         self.data = metric_nii.get_fdata()
         self.affine = metric_nii.affine
-        self.metric_matrix = np.zeros(shape=(num_rois, num_rois)) # connectivity matrix based on this metric
-
+        self.metric_mean_matrix = np.zeros(shape=(num_rois, num_rois)) # Initialize connectivity matrix based on means of this metric.
+        self.metric_std_matrix = np.zeros(shape=(num_rois, num_rois)) # Initialize connectivity matrix based on standard deviations of this metric.
+            
 class TractManager(object):
-    def __init__(self, trk_path, label_path, skip_segmentation, include_terminal_rois, exclude_terminal_rois, exclude_terminal_roi_interiors, out_segmented_trk_path,  out_nos_matrix_path, in_metric_paths, out_metric_matrix_paths, save_roi_pairs, out_roi_pair_trk_paths, out_roi_pair_density_paths, verbose):
+    def __init__(self, trk_path, label_path, skip_segmentation, include_terminal_rois, exclude_terminal_rois, exclude_terminal_roi_interiors, out_segmented_trk_path,  out_nos_matrix_path, in_metric_paths, out_metric_mean_matrix_paths, out_metric_std_matrix_paths, save_roi_pairs, out_roi_pair_trk_paths, out_roi_pair_density_paths, verbose):
         self.verbose = verbose
         if self.verbose:
             print('Parsing inputs and loading files.')
@@ -49,12 +51,17 @@ class TractManager(object):
         self.out_nos_matrix_path = out_nos_matrix_path
 
         # Metric arguments (number of outputs must equal number of inputs if outputs requested).
-        if (not out_metric_matrix_paths is None):
-            if (in_metric_paths is None) or (len(in_metric_paths) != len(out_metric_matrix_paths)):
-                msg = 'Number of --out_metric_matrix_paths arguments must match number of --in_metric_paths arguments.'
+        if (not out_metric_mean_matrix_paths is None):
+            if (in_metric_paths is None) or (len(in_metric_paths) != len(out_metric_mean_matrix_paths)):
+                msg = 'Number of --out_metric_mean_matrix_paths arguments must match number of --in_metric_paths arguments.'
+                raise Exception(msg)
+        if (not out_metric_std_matrix_paths is None):
+            if (in_metric_paths is None) or (len(in_metric_paths) != len(out_metric_std_matrix_paths)):
+                msg = 'Number of --out_metric_std_matrix_paths arguments must match number of --in_metric_paths arguments.'
                 raise Exception(msg)
         self.in_metric_paths = in_metric_paths
-        self.out_metric_matrix_paths = out_metric_matrix_paths
+        self.out_metric_mean_matrix_paths = out_metric_mean_matrix_paths
+        self.out_metric_std_matrix_paths = out_metric_std_matrix_paths
         
         # Specified ROI pairs (number of outputs must match number of specified ROI pairs).
         if (not save_roi_pairs is None):
@@ -360,23 +367,32 @@ class TractManager(object):
                 nib.save(streamline_density_nii, out_roi_pair_density_path)
 
     def setMetricsList(self):
-        if (not self.out_metric_matrix_paths is None):
+        if (not self.out_metric_mean_matrix_paths is None) or (not self.out_metric_std_matrix_paths is None):
+            if (self.out_metric_mean_matrix_paths is None):
+                out_metric_mean_matrix_paths_for_zip = [None]*len(self.out_metric_std_matrix_paths)
+            else:
+                out_metric_mean_matrix_paths_for_zip = self.out_metric_mean_matrix_paths
+            if (self.out_metric_std_matrix_paths is None):
+                out_metric_std_matrix_paths_for_zip = [None]*len(self.out_metric_mean_matrix_paths)
+            else:
+                out_metric_std_matrix_paths_for_zip = self.out_metric_std_matrix_paths
+                
             metrics_list = []
-            for in_metric_path, out_metric_matrix_path in zip(self.in_metric_paths, self.out_metric_matrix_paths):
-                metric = Metric(in_metric_path, out_metric_matrix_path, self.num_valid_terminal_rois)
+            for in_metric_path, out_metric_mean_matrix_path, out_metric_std_matrix_path in zip(self.in_metric_paths, out_metric_mean_matrix_paths_for_zip, out_metric_std_matrix_paths_for_zip):
+                metric = Metric(in_metric_path, out_metric_mean_matrix_path, out_metric_std_matrix_path, self.num_valid_terminal_rois)
                 metrics_list.append(metric)
             self.metrics_list = metrics_list
                 
     def generateConnectivityMatrices(self):
-        if (not self.out_metric_matrix_paths is None) or (not self.out_nos_matrix_path is None):
+        if (not self.out_metric_mean_matrix_paths is None) or (not self.out_metric_std_matrix_paths is None) or (not self.out_nos_matrix_path is None):
             if self.verbose:
                 print('Generating connectivity matrices.')
 
             if (not self.out_nos_matrix_path is None):
                 nos_matrix = np.zeros(shape=(self.num_valid_terminal_rois, self.num_valid_terminal_rois))
-            if (not self.out_metric_matrix_paths is None):
+            if (not self.out_metric_mean_matrix_paths is None) or (not self.out_metric_std_matrix_paths is None):
                 self.setMetricsList()
-                
+
             # Loop over all valid ROI pairs. Since connectivity matrices will be symmetric, compute the upper-triangle part of the matrix, then add transpose later.
             num_connections = self.num_valid_terminal_rois*(self.num_valid_terminal_rois - 1)/2
             count = 0
@@ -393,7 +409,7 @@ class TractManager(object):
                         nos_matrix[index_1, index_2] = num_streamlines_connecting_roi_pair
 
                     # Compute elements of metric-mean matrices.
-                    if (not self.out_metric_matrix_paths is None):
+                    if (not self.out_metric_mean_matrix_paths is None) or (not self.out_metric_std_matrix_paths is None):
                         if num_streamlines_connecting_roi_pair > 0:
                             streamline_density_connecting_roi_pair = self.calculateStreamlineDensity(streamlines_connecting_roi_pair)
 
@@ -401,12 +417,20 @@ class TractManager(object):
                             # Compute metric mean weighted by streamline density.
                             if num_streamlines_connecting_roi_pair > 0:                               
                                 weighted_mean = np.multiply(metric.data, streamline_density_connecting_roi_pair).sum() / streamline_density_connecting_roi_pair.sum()
+                                unweighted_std = np.std(metric.data[streamline_density_connecting_roi_pair>0])
+                                if (not self.out_metric_std_matrix_paths is None):
+                                    weighted_std = np.sqrt( np.multiply(streamline_density_connecting_roi_pair, (metric.data - weighted_mean)**2).sum() / streamline_density_connecting_roi_pair.sum() )
+                                else:
+                                    weighted_std = 0 # if not saving result to file, don't bother calculating it.
                             else:
                                 weighted_mean = 0
-                            metric.metric_matrix[index_1, index_2] = weighted_mean
+                                weighted_std = np.nan
+                            metric.metric_mean_matrix[index_1, index_2] = weighted_mean
+                            metric.metric_std_matrix[index_1, index_2] = weighted_std
+                            
                     count += 1
                     if self.verbose:
-                        if count % 10 == 0:
+                        if count % 50 == 0:
                             print(f'\r    Finished {count}/{num_connections}', end='', flush=True)
             if self.verbose:
                 print('')
@@ -414,16 +438,22 @@ class TractManager(object):
             # Add matrix transposes in order to fill elements at [i,j] where i>j.
             if (not self.out_nos_matrix_path is None):
                 nos_matrix += nos_matrix.T
-            if (not self.out_metric_matrix_paths is None):
+            if (not self.out_metric_mean_matrix_paths is None):
                 for metric in self.metrics_list:
-                    metric.metric_matrix += metric.metric_matrix
+                    metric.metric_mean_matrix += metric.metric_mean_matrix.T
+            if (not self.out_metric_std_matrix_paths is None):
+                for metric in self.metrics_list:
+                    metric.metric_std_matrix += metric.metric_std_matrix.T
 
             # Save matrices.
             if (not self.out_nos_matrix_path is None):
                 np.savetxt(self.out_nos_matrix_path, nos_matrix)
-            if (not self.out_metric_matrix_paths is None):
+            if (not self.out_metric_mean_matrix_paths is None):
                 for metric in self.metrics_list:
-                    np.savetxt(metric.out_metric_matrix_path, metric.metric_matrix)
+                    np.savetxt(metric.out_metric_mean_matrix_path, metric.metric_mean_matrix)
+            if (not self.out_metric_std_matrix_paths is None):
+                for metric in self.metrics_list:
+                    np.savetxt(metric.out_metric_std_matrix_path, metric.metric_std_matrix)
     
     def debug(self):
         #print(self.label_nii)
@@ -445,8 +475,8 @@ class TractManager(object):
         print(f'rows and columns in connectivity matrices correspond to the following ROI labels: {self.valid_terminal_rois}')
         pass
             
-def main(trk_path, label_path, skip_segmentation, include_terminal_rois, exclude_terminal_rois, exclude_terminal_roi_interiors, out_segmented_trk_path, out_nos_matrix_path, in_metric_paths, out_metric_matrix_paths, save_roi_pairs, out_roi_pair_trk_paths, out_roi_pair_density_paths, verbose):
-    tract_manager = TractManager(trk_path, label_path, skip_segmentation, include_terminal_rois, exclude_terminal_rois, exclude_terminal_roi_interiors, out_segmented_trk_path, out_nos_matrix_path, in_metric_paths, out_metric_matrix_paths, save_roi_pairs, out_roi_pair_trk_paths, out_roi_pair_density_paths, verbose)
+def main(trk_path, label_path, skip_segmentation, include_terminal_rois, exclude_terminal_rois, exclude_terminal_roi_interiors, out_segmented_trk_path, out_nos_matrix_path, in_metric_paths, out_metric_mean_matrix_paths, out_metric_std_matrix_paths, save_roi_pairs, out_roi_pair_trk_paths, out_roi_pair_density_paths, verbose):
+    tract_manager = TractManager(trk_path, label_path, skip_segmentation, include_terminal_rois, exclude_terminal_rois, exclude_terminal_roi_interiors, out_segmented_trk_path, out_nos_matrix_path, in_metric_paths, out_metric_mean_matrix_paths, out_metric_std_matrix_paths, save_roi_pairs, out_roi_pair_trk_paths, out_roi_pair_density_paths, verbose)
 
     # Get labels for all streamlines.
     tract_manager.setAllStreamlineLabels()
@@ -455,7 +485,7 @@ def main(trk_path, label_path, skip_segmentation, include_terminal_rois, exclude
     tract_manager.segmentStreamlines()
 
     # Save segmented tractogram.
-    #tract_manager.saveSegmentedTractogram()
+    tract_manager.saveSegmentedTractogram()
     
     # Compute connectivity matrices based on number of streamlines, and mean values of metrics in segmeneted tracts weighted by streamline density.
     tract_manager.generateConnectivityMatrices()
@@ -477,8 +507,9 @@ Available outputs (all optional):
   (1) modified TRK file containing all segmented tracts;
   (2) an ROI x ROI connectivity matrix based on number of streamlines
   (3) ROI x ROI connectivity matrices based on the mean value of a metric (e.g. fractional anisotropy) defined in a separate input metric image, weighted by streamline density
-  (4) TRK files including only tract segments terminating at a specified pairs of ROIs
-  (5) streamline density maps (NIFTI image) indicating the number of streamlines at each voxel for sets of tract segments terminating at a specified pair of ROIs'''
+  (4) ROI x ROI connectivity matrices based on the standard deviation of a metric (e.g. fractional anisotropy) defined in a separate input metric image, weighted by streamline density
+  (5) TRK files including only tract segments terminating at a specified pairs of ROIs
+  (6) streamline density maps (NIFTI image) indicating the number of streamlines at each voxel for sets of tract segments terminating at a specified pair of ROIs'''
 
     class formatter_class(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
         pass
@@ -496,7 +527,8 @@ Available outputs (all optional):
     parser.add_argument('--out_segmented_trk_path', help='path to output TRK file will all segmented streamlines', type=str)
     parser.add_argument('--out_nos_matrix_path', help='path to output connectivity matrix based on the number of streamlines terminating at each pair of ROIs', type=str)
     parser.add_argument('--in_metric_paths', help='paths to input metric NIFTI image (e.g. fractional anisotropy); the mean value of each metric weighted by streamline density will be computed in the segmented tracts and used to generate a separate connectivity matrix for each metric.', nargs='+', type=str)
-    parser.add_argument('--out_metric_matrix_paths', help='paths to output connectivity matrices based on the mean value of metrics in each segmented tract. The number of --out_metric_matrix_paths entries must match the number of --in_metric_paths entries.', nargs='+')
+    parser.add_argument('--out_metric_mean_matrix_paths', help='paths to output connectivity matrices based on the mean value of metrics in each segmented tract, weighted by streamline density. The number of --out_metric_mean_matrix_paths entries must match the number of --in_metric_paths entries.', nargs='+')
+    parser.add_argument('--out_metric_std_matrix_paths', help='paths to output connectivity matrices based on the standard deviation of metrics in each segmented tract, weighted by streamline density. The number of --out_metric_mean_matrix_paths entries must match the number of --in_metric_paths entries.', nargs='+')
     parser.add_argument('--save_roi_pairs', help='pairs of ROIs for which separate TRK and streamline density maps will be saved, depending on the --out_roi_pair_trk_paths and --out_roi_pair_density_paths options. Each pair of ROIs must be specified by a comma-separated pair of integers, and each pair of ROIs must be separated by a space. For example, to specify the ROI pairs 1<->2 and 1<->3, use "--save_roi_pairs 1,2 1,3".', nargs='+')
     parser.add_argument('--out_roi_pair_trk_paths', help='paths to output TRK files including only streamline segments terminating at a specific pair of ROIs; the number of output paths must match the number of "--save_roi_pairs" entries', nargs='+')
     parser.add_argument('--out_roi_pair_density_paths', help='paths to output streamline density maps (NIFTI files) including only streamline segments terminating at a specific pair of ROIs; the number of output paths must match the number of "--save_roi_pairs" entries', nargs='+')
