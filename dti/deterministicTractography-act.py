@@ -24,7 +24,7 @@ import dipy.reconst.dti as dti
 from dipy.tracking.stopping_criterion import BinaryStoppingCriterion
 from dipy.tracking.stopping_criterion import ActStoppingCriterion
 
-def main(dmri_path, bval_path, bvec_path, out_trk_path, roi_path, out_network_matrix_path, gm_path, wm_path, csf_path, seed_density):
+def main(dmri_path, bval_path, bvec_path, out_trk_path, roi_path, out_network_matrix_path, gm_path, wm_path, csf_path, background_path, seed_density, pve_wm_seed_min):
     # Load dMRI image and bvecs/bvals.
     data, affine, dmri_img = load_nifti(dmri_path, return_img=True)
     bvals, bvecs = read_bvals_bvecs(bval_path, bvec_path)
@@ -35,23 +35,26 @@ def main(dmri_path, bval_path, bvec_path, out_trk_path, roi_path, out_network_ma
     pve_gm_data = load_nifti_data(gm_path)
     pve_wm_data = load_nifti_data(wm_path)
 
-    # Generate a backgroud map (where P(WM or GM or CSF) = 0)
-    background = np.ones(pve_gm_data.shape)
-    background[(pve_gm_data + pve_wm_data + pve_csf_data) > 0] = 0
+    # Load or generate backgroud map (where P(WM or GM or CSF) = 0)
+    if (not background_path is None):
+        background_data = load_nifti_data(background_path)
+    else:
+        background_data = np.ones(pve_gm_data.shape)
+        background_data[(pve_gm_data + pve_wm_data + pve_csf_data) > 0] = 0
 
     # Generate the include_map; streamlines terminating in these regions will be considered valid.
-    include_map = pve_gm_data + background
+    include_map = pve_gm_data + background_data
     exclude_map = pve_csf_data
 
     # Define stopping criterion.
     stopping_criterion = ActStoppingCriterion(include_map, exclude_map)
 
     # Define seeds.
-    seed_mask = pve_wm_data >= 0.5
+    seed_mask = pve_wm_data >= pve_wm_seed_min
 
     ## Step 1: Getting directions from a diffusion dataset
     tenmodel = dti.TensorModel(gtab)
-    print('Calculating csa_peaks in WM + GM + CSF (not sure if this is ideal)')
+    print('Calculating csa_peaks in WM + GM + CSF') # not sure if this is ideal
     csa_peaks = peaks_from_model(tenmodel, data, default_sphere, relative_peak_threshold=0.8, min_separation_angle=45, mask=(pve_gm_data + pve_wm_data + pve_csf_data))
 
     ## Step 3: Defining a set of seeds from which to begin tracking
@@ -103,6 +106,7 @@ if (__name__ == '__main__'):
     parser.add_argument("--wm_path", help='path to white matter probability map')
     parser.add_argument("--csf_path", help='path to cerebrospinal fluid probability map')
     parser.add_argument("--seed_density", help="number of tractography seeds per seed voxel specify either a single integer, or three integers to specify a grid of seed points to be used in each seed voxel (e.g. for a 2x2x2 grid of seeds in each voxel, use '--seed_density 2 2 2').", default=1, nargs="+", type=int)
+    parser.add_argument("--pve_wm_seed_min", help='seed tractography in voxels for which the white matter probability is greater than this value.', default=0.5)
     
     # Print help if no arguments input.
     if (len(sys.argv) == 1):

@@ -19,6 +19,10 @@ def main(images_in, image_out, bvals_in, bval_out, bvecs_in, bvec_out):
             image_nifti = nib.load(image_in)
             image_array = image_nifti.get_fdata()
 
+            # Ensure that the image is treated as 4D (could be 3D if it contains only one volume)
+            if image_array.ndim == 3:
+                image_array = np.expand_dims(image_array, 3)
+
             # Append the current image to the combined image.
             image_array_combined = np.append(image_array_combined, image_array, axis=3)
 
@@ -29,14 +33,12 @@ def main(images_in, image_out, bvals_in, bval_out, bvecs_in, bvec_out):
     ## Bval files
     if bvals_in:
         # Load the first bval file.
-        bval_array_combined = np.loadtxt(bvals_in[0])
-        bval_array_combined = np.expand_dims(bval_array_combined, axis=0) # change to an array of shape (1, # of volumes)
+        bval_array_combined = np.loadtxt(bvals_in[0], ndmin=2)
 
         # Loop through the remaining bval files.
         for bval_in in bvals_in[1:]:
-            bval_array = np.loadtxt(bval_in)
-            bval_array = np.expand_dims(bval_array, axis=0)
-
+            bval_array = np.loadtxt(bval_in, ndmin=2)
+            
             # Append the current bval file to the combined file.
             bval_array_combined = np.append(bval_array_combined, bval_array, axis=1)
 
@@ -46,11 +48,11 @@ def main(images_in, image_out, bvals_in, bval_out, bvecs_in, bvec_out):
     ## Bvec files
     if bvecs_in:
         # Load the first bvec file.
-        bvec_array_combined = np.loadtxt(bvecs_in[0])
+        bvec_array_combined = np.loadtxt(bvecs_in[0], ndmin=2)
 
         # Loop through the remaining bvec files.
         for bvec_in in bvecs_in[1:]:
-            bvec_array = np.loadtxt(bvec_in)
+            bvec_array = np.loadtxt(bvec_in, ndmin=2)
 
             # Append the current bvec file to the combined file.
             bvec_array_combined = np.append(bvec_array_combined, bvec_array, axis=1)
