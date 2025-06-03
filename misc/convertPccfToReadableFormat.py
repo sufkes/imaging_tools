@@ -73,8 +73,8 @@ if (__name__ == '__main__'):
     
     
     # Define optional arguments.
-    parser.add_argument("--ref_path", help="path to CSV version of Table 4.1 - Record layout and data description from the PCCF Reference Guide. This table specifies the Position, Size (number of characters), Type (C=character, N=Number?), Attribute name, and Description for each variable in the PCCF.", default=os.path.join(os.path.dirname(__file__), 'PCCF_202212-eng-table4.1_PCCF_record_layout.csv'))
-    parser.add_argument("--postal_code_request_path", help="path to list of postal codes to be included in output file; should contain one postal code per row.")
+    parser.add_argument("--ref_path", help="path to CSV version of Table 4.1 - Record layout and data description from the PCCF Reference Guide. This table specifies the Position, Size (number of characters), Type (C=character, N=Number?), Attribute name, and Description for each variable in the PCCF. By default, use the PCCF Reference Guide released 2022 December 15.", default=os.path.join(os.path.dirname(__file__), 'PCCF_202212-eng-table4.1_PCCF_record_layout.csv'))
+    parser.add_argument("-p", "--postal_code_request_path", help="path to list of postal codes to be included in output file; should contain one postal code per row.")
     parser.add_argument("--postal_code_request_header", action="store_true", help="use this flag if the postal code request path has a header line which should be ignored")
     parser.add_argument("-s", "--single_link_indicator_rows_only", action="store_true", help="only include records marked as the single link indicator (i.e. rows with SLI=1). This ensures a one-to-one mapping between postal code and geographic region.")
 
