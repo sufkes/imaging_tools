@@ -39,6 +39,5 @@ __pycache__/
 
 ## My very own trash
 # Text and spreadsheet files
-*.csv
 *.xls*
 *.png
