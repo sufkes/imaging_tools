@@ -113,19 +113,19 @@ def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=
     # Mask the flattened BOLD image
     nonzero_bold = (bold_flat != 0.0).all(axis=1)
     #print (nonzero_bold.shape)
-    print "Number of nonzero BOLD voxels:", np.count_nonzero(nonzero_bold)
+    print("Number of nonzero BOLD voxels:", np.count_nonzero(nonzero_bold))
     in_mask = mask_flat > mask_thres
     #print (in_mask.shape)
-    print "Number of voxels in thresholded mask:", np.count_nonzero(in_mask)
+    print("Number of voxels in thresholded mask:", np.count_nonzero(in_mask))
     nonzero_bold_and_in_mask = nonzero_bold & in_mask
     #print (nonzero_bold_and_in_mask.shape)
-    print "Number of nonzero BOLD voxels in thresholded mask:", np.count_nonzero(nonzero_bold_and_in_mask)
+    print("Number of nonzero BOLD voxels in thresholded mask:", np.count_nonzero(nonzero_bold_and_in_mask))
 
     # Special option to fix a problem.
     if voxel_map_only:
         # "Voxel" map, which is required to map from the voxels in the map back to the voxels in the image. Depends on the BOLD image, mask, and mask threshold.
         voxel_map_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_voxelmap.npy")
-        print "Saving voxel map to:", voxel_map_path
+        print("Saving voxel map to:", voxel_map_path)
         np.save(voxel_map_path, nonzero_bold_and_in_mask)
         return
     
@@ -149,10 +149,10 @@ def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=
 
     corr = np.corrcoef(bold_mask).astype(np.float32) # numpy.corrcoef returns array of 64-bit floats; apparently no way to use 32-bit, but doing so might cause problems anyway.
     if debug:
-        print "Raw correlation matrix:"
-        print corr[:10,:10]
-        print corr.shape
-        print
+        print("Raw correlation matrix:")
+        print(corr[:10,:10])
+        print(corr.shape)
+        print('')
 
     ## Get the positions in milimeters but multiplying the voxel size along each dimension. Handle non-cubic voxels accordingly
     position = np.zeros(coords_mask.shape, dtype=np.single)
@@ -165,18 +165,18 @@ def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=
     position_new_view = position.reshape(position.shape[0], 1, position.shape[1])
     dist = np.sqrt(np.einsum('ijk, ijk->ij', position-position_new_view, position-position_new_view))
     if debug:
-        print "Pairwise distances between voxels:"
-        print dist[:10,:10]
-        print dist.shape
-        print
+        print("Pairwise distances between voxels:")
+        print(dist[:10,:10])
+        print(dist.shape)
+        print('')
 
     ## Set correlations between voxels to zero if they lie too close to each other.
     corr[dist < corr_dist_min] = 0.0
     if debug:
-        print "Correlation matrix after zeroing correlations between voxels within "+str(corr_dist_min)+"mm of each other:"
-        print corr[:10,:10]
-        print corr.shape
-        print
+        print("Correlation matrix after zeroing correlations between voxels within "+str(corr_dist_min)+"mm of each other:")
+        print(corr[:10,:10])
+        print(corr.shape)
+        print('')
 
     ## Take the absolute values of the correlations.
     # From Wang 2015 - GRETNA:
@@ -184,19 +184,19 @@ def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=
     if (not no_absolute):
         corr = np.abs(corr)
         if debug:
-            print "Correlation matrix after taking absolute values:"
-            print corr[:10,:10]
-            print corr.shape
-            print
+            print("Correlation matrix after taking absolute values:")
+            print(corr[:10,:10])
+            print(corr.shape)
+            print('')
 
     ## Apply Fisher's r-to-z transformation.
     corr_r = corr
     corr_z = np.arctanh(corr)
     if debug:
-        print "Correlation matrix after Fisher's r-to-z transformation:"
-        print corr_z[:10,:10]
-        print corr_z.shape
-        print
+        print("Correlation matrix after Fisher's r-to-z transformation:")
+        print(corr_z[:10,:10])
+        print(corr_z.shape)
+        print('')
     if fisher_r_to_z: # If fisher_r_to_z is True, the transformed correlation matrix will be used construct the adjacency matrix, otherwise the z-transformed result will just be saved separately.
         corr = corr_z
     
@@ -230,47 +230,47 @@ def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=
     weighted_adjacency[corr < correlation_thres] = 0 # correlations below threshold are not considered connections; weights of connection are set to the correlation coefficient magnitude.
     
     binary_adjacency = np.zeros(corr.shape, dtype=np.float64)
-    print "Warning: Saving adjacency matrix for binary network as 64-bit float for compatibilty with BCT. Saving as (int32/bool?) would save space."
+    print("Warning: Saving adjacency matrix for binary network as 64-bit float for compatibilty with BCT. Saving as (int32/bool?) would save space.")
     binary_adjacency[corr >= correlation_thres] = 1
-    print "Thresholding correlation matrix to create an adjacency matrix for a network with density "+str(network_density)
-    print "Actual network density:", float(binary_adjacency.sum())/ ( float(num_nodes)*float(num_nodes-1) )
-    print "Corresponding correlation coefficient (either r or z depending on options): "+str(correlation_thres)
+    print("Thresholding correlation matrix to create an adjacency matrix for a network with density "+str(network_density))
+    print("Actual network density:", float(binary_adjacency.sum())/ ( float(num_nodes)*float(num_nodes-1) ))
+    print("Corresponding correlation coefficient (either r or z depending on options): "+str(correlation_thres))
     if debug:
-        print "Adjacency matrix for binary network:"
-        print binary_adjacency[:10, :10]
-        print
-
+        print("Adjacency matrix for binary network:")
+        print(binary_adjacency[:10, :10])
+        print('')
     # Calculate the node degree to compare with BNA
     node_degree = binary_adjacency.sum(axis=1)
     if debug:
-        print "Node degree matrix:"
-        print node_degree
-        print node_degree.shape
-        print
-
+        print("Node degree matrix:")
+        print(node_degree)
+        print(node_degree.shape)
+        print('')
+        
     # Calculate the node degree to compare with BNA
     node_degree_weighted = weighted_adjacency.sum(axis=1)
     if debug:
-        print "Weighted node degree matrix:"
-        print node_degree_weighted
-        print node_degree_weighted.shape
-        print
+        print("Weighted node degree matrix:")
+        print(node_degree_weighted)
+        print(node_degree_weighted.shape)
+        print('')
         
     #### Calculate measures from the correlation matrix.
     ## Calcuate the functional connectivity strength (FCS) as in Cao et al. (2017):
     # "Specifically, for each voxel, the FCS was calculated as the average of the correlations between this voxel and all other voxels in the brain."
     fcs_r = corr_r.mean(axis=1)
     if debug:
-        print "FCS matrix:"
-        print fcs_r
-        print fcs_r.shape
-        print
+        print("FCS matrix:")
+        print(fcs_r)
+        print(fcs_r.shape)
+        print('')
+        
     fcs_z = corr_z.mean(axis=1)
     if debug:
-        print "FCS matrix:"
-        print fcs_z
-        print fcs_z.shape
-        print
+        print("FCS matrix:")
+        print(fcs_z)
+        print(fcs_z.shape)
+        print('')
 
     #### Map measures masked, flatten voxel arrays back to image space.
         
@@ -302,13 +302,13 @@ def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=
     fcs_r_image_space = flatMaskedToImageSpace(fcs_r, nonzero_bold_and_in_mask, bold.shape[:3])
     fcs_r_nii = nib.Nifti1Image(fcs_r_image_space, bold_nii.affine, bold_nii.header)
     fcs_r_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_fcs_r.nii.gz")
-    print "Saving FCS to:", fcs_r_path
+    print("Saving FCS to:", fcs_r_path)
     nib.save(fcs_r_nii, fcs_r_path)
 
     fcs_z_image_space = flatMaskedToImageSpace(fcs_z, nonzero_bold_and_in_mask, bold.shape[:3])
     fcs_z_nii = nib.Nifti1Image(fcs_z_image_space, bold_nii.affine, bold_nii.header)
     fcs_z_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_fcs_z.nii.gz")
-    print "Saving FCS to:", fcs_z_path
+    print("Saving FCS to:", fcs_z_path)
     nib.save(fcs_z_nii, fcs_z_path)
     # If only FCS NIFTI file is desired, return from function now.
     if fcs_only: 
@@ -318,27 +318,27 @@ def buildConnectivityMatrix(bold_path, mask_path=None, out_dir=None, mask_thres=
     node_degree_weighted_image_space = flatMaskedToImageSpace(node_degree_weighted, nonzero_bold_and_in_mask, bold.shape[:3])
     node_degree_weighted_nii = nib.Nifti1Image(node_degree_weighted_image_space, bold_nii.affine, bold_nii.header)
     node_degree_weighted_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_wdeg.nii.gz")
-    print "Saving weighted node degree to:", node_degree_weighted_path
+    print("Saving weighted node degree to:", node_degree_weighted_path)
     nib.save(node_degree_weighted_nii, node_degree_weighted_path)    
 
     # "Voxel" map, which is required to map from the voxels in the map back to the voxels in the image. Depends on the BOLD image, mask, and mask threshold.
     voxel_map_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_voxelmap.npy")
-    print "Saving voxel map to:", voxel_map_path
+    print("Saving voxel map to:", voxel_map_path)
     np.save(voxel_map_path, nonzero_bold_and_in_mask)
     
     ## Correlation matrix.
     corr_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_corr.npy")
-    print "Saving correlation matrix to:", corr_path
+    print("Saving correlation matrix to:", corr_path)
     np.save(corr_path, corr)
 
     # Weighted adjacency matrix
     weighted_adjacency_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_wadj.npy")
-    print "Saving weighted adjacency matrix to:", weighted_adjacency_path
+    print("Saving weighted adjacency matrix to:", weighted_adjacency_path)
     np.save(weighted_adjacency_path, weighted_adjacency)
     
     # Binary adjacency matrix
     binary_adjacency_path = os.path.join(out_dir, os.path.basename(bold_path).rstrip(".gz").rstrip(".nii")+"_badj.npy")
-    print "Saving binary adjacency matrix to:", binary_adjacency_path
+    print("Saving binary adjacency matrix to:", binary_adjacency_path)
     np.save(binary_adjacency_path, binary_adjacency)
 
 def mapMeasureToVoxels(bold_path, voxel_map_path, measure_path, out_dir):
@@ -359,7 +359,7 @@ def mapMeasureToVoxels(bold_path, voxel_map_path, measure_path, out_dir):
         #raise Exception(message)
         warnings.warn(message)
     else:
-        print "Saving measure to:", measure_path
+        print("Saving measure to:", measure_path)
         nib.save(measure_nii, measure_path)    
     
 if (__name__ == '__main__'):

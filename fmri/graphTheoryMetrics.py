@@ -203,7 +203,7 @@ If 'function' returns a tuple, only the first value is taken and treated as a me
         metric_mean_normalized = metric_mean/rand_mean
         return metric, metric_mean, metric_mean_normalized, rand_mean # vector, scalar, scalar, scalar.
 
-def computeAuc(auc_dict, out_dir, thresholds, min_thresh=None, max_thresh=None, weighted=False, atlas_string=None):
+def computeAuc(auc_dict, out_dir, thresholds, min_thresh=None, max_thresh=None, weighted=False, atlas_string=None, legend_df=None):
     # By default, compute AUC over all thresholds in auc_dict
     if min_thresh is not None:
         thresholds = [t for t in thresholds if t >= min_thresh]
@@ -237,12 +237,13 @@ def computeAuc(auc_dict, out_dir, thresholds, min_thresh=None, max_thresh=None, 
                     metric_auc += trapezoid_area
                     metric_mean += val_new
 
-                # Add value to dataframe.
+                # Add threshold-specific value to dataframe.
                 if np.isscalar(val_new):
                     col_name = bw_string+'_'+metric_name+'_thresh_'+"{:.2f}".format(thresh_new)
                     auc_df.loc[subject, col_name] = val_new
                 else:
-                    for node_number, node_value in enumerate(val_new, 1):
+                    for node_index, node_value in enumerate(val_new):
+                        node_number=legend_df.loc[node_index, 'number']
                         col_name = bw_string+'_'+metric_name+'_'+atlas_string+'_'+str(int(node_number))+'_thresh_'+'{:.2f}'.format(thresh_new)
                         auc_df.loc[subject, col_name] = node_value
                 val_old = val_new
@@ -259,10 +260,12 @@ def computeAuc(auc_dict, out_dir, thresholds, min_thresh=None, max_thresh=None, 
                 col_name = bw_string+'_'+metric_name+'_intmean'
                 auc_df.loc[subject, col_name] = metric_int_mean
             else:
-                for node_number, node_value in enumerate(metric_auc, 1):
+                for node_index, node_value in enumerate(metric_auc):
+                    node_number = legend_df.loc[node_index, 'number']
                     col_name = bw_string+'_'+metric_name+'_'+atlas_string+'_'+str(int(node_number))+'_auc'
                     auc_df.loc[subject, col_name] = node_value
-                for node_number, node_value in enumerate(metric_int_mean, 1):
+                for node_index, node_value in enumerate(metric_int_mean):
+                    node_number = legend_df.loc[node_index, 'number']
                     col_name = bw_string+'_'+metric_name+'_'+atlas_string+'_'+str(int(node_number))+'_intmean'
                     auc_df.loc[subject, col_name] = node_value
 
@@ -293,8 +296,11 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir=No
     for matrix_path in matrix_paths:
         print(f'Processing {os.path.abspath(matrix_path)}')
         subject = os.path.basename(matrix_path).split('.')[0] # Assume file is named <subject ID>.<extension>
-        
-        matrix = np.loadtxt(matrix_path, dtype=np.float64)
+
+        if matrix_path.endswith('.npy'):
+            matrix = np.load(matrix_path)
+        else:
+            matrix = np.loadtxt(matrix_path, dtype=np.float64)
 
         if not legend_parsed:
             # Read legend.
@@ -364,17 +370,17 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir=No
                 
                 conn_df.loc[subject, column_name] = conn
                 conn_original_df.loc[subject, column_name] = conn_original
-        
+                
     # Create output directory if it does not exist.
     if (out_dir is None) or (not os.path.isdir(out_dir)):
         os.makedirs(out_dir)
-
+    
     # Save the dataframe with the correlation values before and after transformation.
     out_name = f'{weight_prefix}_{atlas_string}_n{str(matrix.shape[0])}.csv'
     out_path = os.path.join(out_dir, out_name)
     conn_df.index.name = 'subject'
     conn_df.to_csv(out_path)
-
+    
     if (not transform is None):
         out_name = f'raw_{weight_prefix}_{atlas_string}_n{str(matrix.shape[0])}.csv'
         out_path = os.path.join(out_dir, out_name)
@@ -631,8 +637,8 @@ def graphTheoryMetrics(matrix_paths, legend_path=None, gm_only=False, out_dir=No
 #    computeAuc(**w_auc_args)
 
     ## Compute the AUC for each metric, and save all metrics (density-specific and AUC) to CSV.
-    computeAuc(b_auc_dict, out_dir, thresholds, weighted=False, atlas_string=atlas_string)
-    computeAuc(w_auc_dict, out_dir, thresholds, weighted=True, atlas_string=atlas_string)
+    computeAuc(b_auc_dict, out_dir, thresholds, weighted=False, atlas_string=atlas_string, legend_df=legend_df)
+    computeAuc(w_auc_dict, out_dir, thresholds, weighted=True, atlas_string=atlas_string, legend_df=legend_df)
     
     return
     

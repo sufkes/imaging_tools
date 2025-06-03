@@ -1,0 +1,58 @@
+- This table includes both global (network-wide) and nodal metrics.
+- For more detail about the metric definitions, see the Brain Connectivity Toolbox (https://sites.google.com/site/bctnet/list-of-measures).
+- Variables are named according to the following scheme:
+
+  <weighted or binary>_<metric name>_<ROI atlas name>_<ROI number>_<threshold network density or averaging method>
+
+where:
+  weighted or binary:
+    w: metric computed in weighted network
+    b: metric computed in binary network
+
+  metric name:
+    betweenness: betweenness centrality (nodal)
+
+    charpath: characteristic path length (global)
+	       
+    charpath_rand_mean: average characteristic path length across 100 random network with same size and edge weight distribution (global)
+	       
+    lambda: characteristic path length relative to a random network (i.e. charpath/charpath_rand_mean) (global)
+	       
+    clustering_coefficient: clustering coefficient (nodal)
+
+    global_clustering_coefficient: average clustering coefficient across nodes (global)
+
+    global_clustering_coefficient_rand_mean: average clustering coefficient across nodes in 100 random networks with same size and edge weight distribution (global)
+	       
+    gamma: average clustering coefficient across nodes relative to a random network (i.e. global_clustering_coefficient/global_clustering_coefficient_rand_mean) (global)
+	       
+    degree: degree centrality (global)
+	       
+    sigma: small worldness (sigma/lambda) (global)
+	       
+    local_efficiency: local efficiency (nodal)
+	       
+    network_local_efficiency: local efficiency averaged across nodes (global)
+	       
+    transitivity: transitivity (global)
+	       
+    modularity: modularity (global)
+
+  ROI atlas name:
+    cba: 92 primarily grey matter regions defined in the CerebrA atlas
+
+  ROI number: number corresponding to ROI
+
+  threshold network density or averaging method:
+    thresh_[density]: metric computed at specific network density threshold
+
+    auc: sum of metric across all density thresholds (here 0.01, 0.02, ..., 0.10). This is often used in papers, but I prefer the next method ('intmean') since it keeps the values in an interpretable range.
+
+    intmean: mean of metric across density thresholds approximated using the trapezoidal rule (method used in Selvanathan paper)
+
+Examples:
+  w_modularity_thresh_0.03: modularity metric computed at a density threshold of 0.03
+
+  w_local_efficiency_aal_91_thresh_0.10: local efficiency in the left cerebellar hemisphere computed at network density 0.10
+
+  w_transitivity_intmean: average transitivy across all network densities

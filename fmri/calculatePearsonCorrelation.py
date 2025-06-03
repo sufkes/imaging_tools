@@ -11,6 +11,11 @@ def main(time_series_path, out_dir, no_csv=True, scan_id=None, csv_prefix='all_p
     mts = np.loadtxt(time_series_path)
     r_raw = np.corrcoef(mts, rowvar=False)
 
+    # numpy.corrcoef may return a non-symmetric result. Force it to be symmetric.
+    r_raw = (r_raw + r_raw.T)/2
+    if (r_raw != r_raw.T).any():
+        print('Warning: Correlation coefficient matrix is not symmetric, despite attempt to force it to be symmetric.')
+
     r_abs = np.abs(r_raw)
     
     r_pos = r_raw.copy()
