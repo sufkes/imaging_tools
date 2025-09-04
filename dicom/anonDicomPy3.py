@@ -217,7 +217,7 @@ def anonDicom(in_path, name=None, level=2, modify_pid=False, print_only=False, f
 #            print('WARNING: No name specified, PatientName will not be changed.')
             pass
 
-        cmd_dcmodify += f' "in_path"'
+        cmd_dcmodify += f' "{in_path}"'
     
         # Execute anonymization command.
         output, errors = run_cmd(cmd_dcmodify, 0)
@@ -251,19 +251,19 @@ if (__name__ == "__main__"):
 
 Examples:
 # Anonymize a single DICOM file without modifying the PatientName or PateintID tags:
-anonDicom.py 0123.dcm
+anonDicomPy3.py 0123.dcm
 
 # Anonymize a single DICOM file, changing the PatientName tag to "ABC123", leaving the PatientID tag unchanged:
-anonDicom.py 0123.dcm -n ABC123 
+anonDicomPy3.py 0123.dcm -n ABC123 
 
 # Anonmize a single DICOM file, changing the PatientName and PatientID tags to "ABC123":
-anonDicom.py 0123.dcm -n ABC123 -m
+anonDicomPy3.py 0123.dcm -n ABC123 -m
 
 # Check anonymization of a single DICOM file without modifying the file:
-anonDicom.py 0123.dcm -p
+anonDicomPy3.py 0123.dcm -p
 
 # Anonyize all DICOM files in a directory:
-anonDicom.py /path/to/my/directory -r 
+anonDicomPy3.py /path/to/my/directory -r 
  """
     parser = argparse.ArgumentParser(description=description, epilog=epilog, formatter_class=argparse.RawTextHelpFormatter)
     
